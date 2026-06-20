@@ -1,0 +1,9 @@
+node_modules/
+.env
+
+.playwright-mcp/
+*.png
+
+# Local tooling + scratch (not part of the package)
+.claude/
+tmp/

@@ -1,0 +1,17 @@
+{
+  "defaultInstance": "prod",
+  "instances": {
+    "prod": {
+      "baseUrl": "https://coolify.prod.example.com",
+      "token": "${COOLIFY_PROD_TOKEN}",
+      "enableHostOps": true,
+      "allowDestructive": false,
+      "ssh": { "keyPath": "~/.ssh/id_ed25519" },
+      "db": { "readonlyUser": "coolify_ro", "readonlyPassword": "${PROD_DB_RO_PW}" }
+    },
+    "staging": {
+      "baseUrl": "https://coolify.staging.example.com",
+      "token": "${COOLIFY_STAGING_TOKEN}"
+    }
+  }
+}

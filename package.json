@@ -1,0 +1,51 @@
+{
+  "name": "@jimrarras/coolify-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for self-hosted Coolify instances",
+  "type": "module",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jimrarras/coolify-mcp.git"
+  },
+  "files": [
+    "dist",
+    "THIRD-PARTY-NOTICES.txt"
+  ],
+  "bin": {
+    "coolify-mcp": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "build:tsc": "tsc -p tsconfig.build.json",
+    "dev": "tsx src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "probe": "tsx src/scripts/probe.ts",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run lint && npm test && npm run build && git diff --exit-code dist/ THIRD-PARTY-NOTICES.txt"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@types/node": "^20.0.0",
+    "@types/ssh2": "^1.15.0",
+    "dotenv": "^16.4.5",
+    "esbuild": "^0.28.0",
+    "ssh2": "^1.16.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.9"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "cpu-features": "npm:@favware/skip-dependency@latest"
+  }
+}

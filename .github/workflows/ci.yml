@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint (tsc --noEmit)
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build bundle
+        run: npm run build
+
+      # The bundle (dist/) and THIRD-PARTY-NOTICES.txt are committed artifacts.
+      # Fail if a source change was committed without rebuilding them, so a stale
+      # bundle can never be shipped to `npm install github:...` consumers.
+      - name: Check committed bundle is in sync with source
+        run: git diff --exit-code dist/ THIRD-PARTY-NOTICES.txt
