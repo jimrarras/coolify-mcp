@@ -5,7 +5,12 @@ export function expandEnvRefs(value: string, env: Record<string, string | undefi
     const v = env[name];
     if (v !== undefined) return v;
     if (dflt !== undefined) return dflt;
-    throw new CoolifyError("invalid_input", `Unresolved environment variable in config: \${${name}}`);
+    throw new CoolifyError(
+      "invalid_input",
+      `Config references environment variable ${name}, but it is not set. ` +
+        `Set ${name} in your environment (or your MCP client's "env" block), ` +
+        `or re-run 'coolify-mcp init' to store the value directly in the config.`,
+    );
   });
 }
 

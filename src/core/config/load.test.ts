@@ -9,8 +9,10 @@ beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "coolify-cfg-")); });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 describe("loadConfig env fallback", () => {
+  // Isolate the home dir (the fresh temp `dir` has no .coolify-mcp/config.json) so the
+  // env-fallback path is exercised regardless of any real ~/.coolify-mcp/config.json.
   it("synthesizes a 'default' instance from env when no file", () => {
-    const cfg = loadConfig([], { COOLIFY_BASE_URL: "https://h", COOLIFY_TOKEN: "1|s" });
+    const cfg = loadConfig([], { COOLIFY_BASE_URL: "https://h", COOLIFY_TOKEN: "1|s" }, { home: dir });
     expect(cfg.defaultInstance).toBe("default");
     expect(cfg.instances.default.baseUrl).toBe("https://h");
     expect(cfg.instances.default.enableHostOps).toBe(false);
@@ -21,7 +23,7 @@ describe("loadConfig env fallback", () => {
       COOLIFY_SSH_KEY_PATH: "/k", COOLIFY_SSH_KNOWN_HOST_FINGERPRINT: "SHA256:x",
       COOLIFY_SSH_HOST: "203.0.113.5", COOLIFY_SSH_HOST_SERVER: "primary",
       COOLIFY_DB_READONLY_USER: "ro",
-    });
+    }, { home: dir });
     const i = cfg.instances.default;
     expect(i.enableHostOps).toBe(true);
     expect(i.allowDestructive).toBe(true);
@@ -32,14 +34,14 @@ describe("loadConfig env fallback", () => {
     expect(i.db?.readonlyUser).toBe("ro");
   });
   it("throws when neither file nor COOLIFY_BASE_URL present", () => {
-    expect(() => loadConfig([], {})).toThrow(/COOLIFY_BASE_URL/);
+    expect(() => loadConfig([], {}, { home: dir })).toThrow(/COOLIFY_BASE_URL/);
   });
   it("rejects a token whose id segment is not an integer", () => {
-    expect(() => loadConfig([], { COOLIFY_BASE_URL: "https://h", COOLIFY_TOKEN: "abc|secret" }))
+    expect(() => loadConfig([], { COOLIFY_BASE_URL: "https://h", COOLIFY_TOKEN: "abc|secret" }, { home: dir }))
       .toThrow(/<id>\|<secret>/);
   });
   it("accepts a well-formed '<int>|<secret>' token", () => {
-    const cfg = loadConfig([], { COOLIFY_BASE_URL: "https://h", COOLIFY_TOKEN: "42|sk_abc" });
+    const cfg = loadConfig([], { COOLIFY_BASE_URL: "https://h", COOLIFY_TOKEN: "42|sk_abc" }, { home: dir });
     expect(cfg.instances.default.token).toBe("42|sk_abc");
   });
 });

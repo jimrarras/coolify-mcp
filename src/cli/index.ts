@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { isMissingConfigError } from "../core/config.js";
+import { CoolifyError } from "../core/errors.js";
 
 interface DispatchDeps {
   runDoctor: (argv: string[], env: Record<string, string | undefined>, out: (l: string) => void) => Promise<number>;
@@ -42,9 +43,17 @@ export async function dispatch(argv: string[], deps?: Partial<DispatchDeps>): Pr
     return 0;
   } catch (e) {
     // The most common first-run failure is "not configured yet" — guide the user
-    // instead of dumping a CoolifyError stack trace. Other errors stay fatal.
+    // through setup instead of dumping a stack trace.
     if (isMissingConfigError(e)) {
       process.stderr.write(configGuidance() + "\n");
+      return 1;
+    }
+    // Any other CoolifyError is an expected, user-facing failure (a malformed
+    // config, an unresolved ${ENV} reference, auth, …) — its message is already
+    // actionable, so print it cleanly rather than as a stack trace. Only truly
+    // unexpected errors rethrow and surface a stack (a real bug to report).
+    if (e instanceof CoolifyError) {
+      process.stderr.write(`[coolify-mcp] ${e.message}\n`);
       return 1;
     }
     throw e;

@@ -61,8 +61,9 @@ coolify-mcp doctor    # verify the setup any time, with a specific fix for each 
 5. **Enable `query_coolify_db`?** If yes, it prints ready-to-run `CREATE ROLE … GRANT … REVOKE …`
    SQL (with a generated password) for you to run on your Coolify Postgres.
 
-It writes `~/.coolify-mcp/config.json` (backing up any existing one) with **secrets as `${ENV}`
-references, never inline** — for example:
+It writes `~/.coolify-mcp/config.json` (backing up any existing one) at mode `0600`. **By default the
+secrets you just entered are stored directly in that file, so setup works immediately — no
+environment variables to set.** For example:
 
 ```jsonc
 {
@@ -70,23 +71,27 @@ references, never inline** — for example:
   "instances": {
     "default": {
       "baseUrl": "https://coolify.example.com",
-      "token": "${COOLIFY_TOKEN}",
+      "token": "5|the-actual-token",
       "enableHostOps": true,
       "allowDestructive": false,
       "ssh": {
         "keyPath": "/home/you/.ssh/id_ed25519",
         "hostServer": "<control-server-uuid>",
         "fingerprint": "SHA256:…",
-        "passphrase": "${COOLIFY_SSH_KEY_PASSPHRASE}"
+        "passphrase": "the-actual-passphrase"
       }
     }
   }
 }
 ```
 
-…then prints the env vars to set (`COOLIFY_TOKEN`, `COOLIFY_SSH_KEY_PASSPHRASE`, …) and the
-MCP-client snippet to paste. Set those env vars in your MCP client's `env` block (or shell), since
-the `${ENV}` references are expanded at startup.
+Then just run `coolify-mcp doctor` to verify — and your MCP client only needs
+`{ "command": "coolify-mcp" }` (no `env` block).
+
+**Prefer to keep secrets out of the file?** Run `coolify-mcp init --env-secrets`. It writes `${ENV}`
+references instead (`token: "${COOLIFY_TOKEN}"`, `passphrase: "${COOLIFY_SSH_KEY_PASSPHRASE}"`, …) and
+prints the variables to set in your shell or your MCP client's `env` block; the references are
+expanded at startup. (If a referenced variable isn't set, startup fails with a message naming it.)
 
 #### `doctor`
 

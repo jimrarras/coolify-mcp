@@ -220,7 +220,10 @@ function expandEnvRefs(value, env) {
     const v = env[name];
     if (v !== void 0) return v;
     if (dflt !== void 0) return dflt;
-    throw new CoolifyError("invalid_input", `Unresolved environment variable in config: \${${name}}`);
+    throw new CoolifyError(
+      "invalid_input",
+      `Config references environment variable ${name}, but it is not set. Set ${name} in your environment (or your MCP client's "env" block), or re-run 'coolify-mcp init' to store the value directly in the config.`
+    );
   });
 }
 function expandHome(p, home) {
@@ -319,9 +322,9 @@ function fromEnvFallback(flags, env) {
   assertCoolifyTokenFormat(token, "COOLIFY_TOKEN");
   return validateAppConfig(raw);
 }
-function loadConfig(argv, env) {
+function loadConfig(argv, env, opts) {
   const flags = parseFlags(argv, env);
-  const home = homedir();
+  const home = opts?.home ?? homedir();
   let path = flags.configPath;
   if (!path) {
     const candidate = join(home, ".coolify-mcp", "config.json");
@@ -22207,7 +22210,7 @@ __export(doctor_exports, {
 async function runDoctor(argv, env, out, deps = {}) {
   let registry2;
   try {
-    registry2 = new InstanceRegistry(loadConfig(argv, env));
+    registry2 = new InstanceRegistry(loadConfig(argv, env, deps.home ? { home: deps.home } : void 0));
   } catch (e) {
     out(`config error: ${e instanceof Error ? e.message : String(e)}`);
     return 1;
@@ -22370,7 +22373,7 @@ import { homedir as homedir4 } from "node:os";
 function buildConfigObject(input) {
   const inst = {
     baseUrl: input.baseUrl,
-    token: "${COOLIFY_TOKEN}",
+    token: input.envSecrets ? "${COOLIFY_TOKEN}" : input.token,
     enableHostOps: input.enableHostOps,
     allowDestructive: false
   };
@@ -22379,11 +22382,16 @@ function buildConfigObject(input) {
     if (input.ssh.host) ssh.host = input.ssh.host;
     if (input.ssh.hostServer) ssh.hostServer = input.ssh.hostServer;
     if (input.ssh.fingerprint) ssh.fingerprint = input.ssh.fingerprint;
-    if (input.ssh.hasPassphrase) ssh.passphrase = "${COOLIFY_SSH_KEY_PASSPHRASE}";
+    if (input.ssh.passphrase) {
+      ssh.passphrase = input.envSecrets ? "${COOLIFY_SSH_KEY_PASSPHRASE}" : input.ssh.passphrase;
+    }
     inst.ssh = ssh;
   }
   if (input.db) {
-    inst.db = { readonlyUser: input.db.readonlyUser, readonlyPassword: "${COOLIFY_DB_RO_PASSWORD}" };
+    inst.db = {
+      readonlyUser: input.db.readonlyUser,
+      readonlyPassword: input.envSecrets ? "${COOLIFY_DB_RO_PASSWORD}" : input.db.readonlyPassword
+    };
   }
   return { defaultInstance: input.instanceName, instances: { [input.instanceName]: inst } };
 }
@@ -22407,6 +22415,7 @@ function generateDbRoleSql(user, password) {
 }
 async function runInitFlow(deps) {
   const { io, env } = deps;
+  const envSecrets = deps.envSecrets ?? false;
   io.print("coolify-mcp setup\n");
   const baseUrl = await io.prompt("Coolify base URL", env.COOLIFY_BASE_URL);
   const token = await io.prompt("API token (<id>|<secret>)", env.COOLIFY_TOKEN);
@@ -22451,7 +22460,7 @@ async function runInitFlow(deps) {
         io.print(`Host key fingerprint: ${fingerprint}`);
         if (await io.confirm("Pin this fingerprint (verify it matches your host)?", false)) {
           enableHostOps = true;
-          ssh = { keyPath: found.path, hostServer, host: void 0, hasPassphrase: !!found.passphrase, fingerprint };
+          ssh = { keyPath: found.path, hostServer, host: void 0, passphrase: found.passphrase, fingerprint };
           io.print(`\u2713 host-ops will use ${found.path}`);
         } else {
           io.print("Fingerprint not confirmed \u2014 skipping host-ops.");
@@ -22469,36 +22478,51 @@ async function runInitFlow(deps) {
       user = "coolify_ro";
     }
     const password = generatePassword();
-    db = { readonlyUser: user };
+    db = { readonlyUser: user, readonlyPassword: password };
     io.print("\nRun this SQL on your Coolify Postgres (psql -U postgres coolify):\n");
     io.print(generateDbRoleSql(user, password));
-    io.print(`
+    io.print(
+      envSecrets ? `
 Then set: COOLIFY_DB_RO_PASSWORD=${password}
-`);
+` : `
+(The role password is saved in your config file.)
+`
+    );
   }
-  const obj = buildConfigObject({ instanceName, baseUrl, enableHostOps, ssh, db });
+  const obj = buildConfigObject({ instanceName, baseUrl, enableHostOps, envSecrets, token, ssh, db });
   const path = deps.writeConfig(obj);
   io.print(`
 \u2713 wrote ${path}`);
-  io.print("\nSet these environment variables (values shown once):");
-  io.print(`  COOLIFY_TOKEN=${token}`);
-  if (ssh?.hasPassphrase) io.print("  COOLIFY_SSH_KEY_PASSPHRASE=<the passphrase you entered>");
-  io.print("\nMCP client config:");
-  io.print(JSON.stringify({ mcpServers: { coolify: { command: "coolify-mcp", args: [], env: { COOLIFY_TOKEN: "<your token>" } } } }, null, 2));
-  io.print("\nVerify any time with:  coolify-mcp doctor");
+  if (envSecrets) {
+    io.print("\nThis config references secrets via ${ENV} \u2014 set them before running:");
+    io.print(`  COOLIFY_TOKEN=${token}`);
+    if (ssh?.passphrase) io.print("  COOLIFY_SSH_KEY_PASSPHRASE=<the passphrase you entered>");
+    io.print(`
+  (PowerShell: $env:COOLIFY_TOKEN="${token}"   bash: export COOLIFY_TOKEN="${token}")`);
+    io.print("\nMCP client config (put the secrets in the env block):");
+    io.print(JSON.stringify({ mcpServers: { coolify: { command: "coolify-mcp", args: [], env: { COOLIFY_TOKEN: "<your token>" } } } }, null, 2));
+    io.print("\nThen verify with:  coolify-mcp doctor");
+  } else {
+    io.print("Your credentials are saved in that file (mode 0600) \u2014 no environment variables needed.");
+    io.print("\nMCP client config:");
+    io.print(JSON.stringify({ mcpServers: { coolify: { command: "coolify-mcp", args: [] } } }, null, 2));
+    io.print("\nVerify now with:  coolify-mcp doctor");
+  }
   return 0;
 }
-async function runInit(_argv, env, io = defaultIO) {
+async function runInit(argv, env, io = defaultIO) {
+  const envSecrets = argv.includes("--env-secrets");
   try {
-    return await runInitFlowWithRealDeps(io, env);
+    return await runInitFlowWithRealDeps(io, env, envSecrets);
   } finally {
     io.close?.();
   }
 }
-function runInitFlowWithRealDeps(io, env) {
+function runInitFlowWithRealDeps(io, env, envSecrets) {
   return runInitFlow({
     io,
     env,
+    envSecrets,
     makeApi: (baseUrl, token) => new CoolifyApiClient({ baseUrl, token, extraHeaders: {} }),
     resolveControlHost: async (baseUrl, token, hostServer) => {
       const api = new CoolifyApiClient({ baseUrl, token, extraHeaders: {} });
@@ -42408,7 +42432,7 @@ function isLocalhost(host) {
 }
 function buildServer(registry2, tools) {
   const multi = registry2.names().length > 1;
-  const server = new Server({ name: "coolify-mcp", version: "0.1.1" }, { capabilities: { tools: {} } });
+  const server = new Server({ name: "coolify-mcp", version: "0.1.2" }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((t) => ({
       name: t.name,
@@ -42534,6 +42558,7 @@ var init_server3 = __esm({
 
 // src/cli/index.ts
 init_config();
+init_errors();
 function configGuidance() {
   return [
     "coolify-mcp is not configured yet.",
@@ -42566,6 +42591,11 @@ async function dispatch2(argv, deps) {
   } catch (e) {
     if (isMissingConfigError(e)) {
       process.stderr.write(configGuidance() + "\n");
+      return 1;
+    }
+    if (e instanceof CoolifyError) {
+      process.stderr.write(`[coolify-mcp] ${e.message}
+`);
       return 1;
     }
     throw e;

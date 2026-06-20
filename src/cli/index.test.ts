@@ -43,7 +43,25 @@ describe("dispatch", () => {
     expect(out).not.toMatch(/\n\s+at \S+/); // no stack-trace frames
   });
 
-  it("re-throws a non-config server error (stays fatal)", async () => {
+  it("prints a clean message (no stack) for an expected CoolifyError, e.g. an unresolved ${ENV} ref", async () => {
+    const { CoolifyError } = await import("../core/errors.js");
+    const runServer = vi.fn(async () => {
+      throw new CoolifyError("invalid_input", "Config references environment variable COOLIFY_TOKEN, but it is not set.");
+    });
+    const writes: string[] = [];
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation(((s: string | Uint8Array) => {
+      writes.push(String(s));
+      return true;
+    }) as typeof process.stderr.write);
+    const code = await dispatch([], { runDoctor: vi.fn(), runInit: vi.fn(), runServer });
+    spy.mockRestore();
+    const out = writes.join("");
+    expect(code).toBe(1);
+    expect(out).toContain("COOLIFY_TOKEN");
+    expect(out).not.toMatch(/\n\s+at \S+/); // clean message, no stack frames
+  });
+
+  it("re-throws an unexpected (non-CoolifyError) server error so it surfaces as fatal", async () => {
     const runServer = vi.fn(async () => { throw new Error("boom"); });
     await expect(
       dispatch([], { runDoctor: vi.fn(), runInit: vi.fn(), runServer }),

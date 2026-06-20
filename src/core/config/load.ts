@@ -93,9 +93,12 @@ function fromEnvFallback(flags: Flags, env: Record<string, string | undefined>):
   return validateAppConfig(raw);
 }
 
-export function loadConfig(argv: string[], env: Record<string, string | undefined>): AppConfig {
+// `opts.home` overrides the home directory used to auto-discover ~/.coolify-mcp/
+// config.json and to expand `~` in ssh paths. Defaults to os.homedir(); injectable
+// so tests are hermetic (not contaminated by a real user config) and for embedding.
+export function loadConfig(argv: string[], env: Record<string, string | undefined>, opts?: { home?: string }): AppConfig {
   const flags = parseFlags(argv, env);
-  const home = homedir();
+  const home = opts?.home ?? homedir();
   let path = flags.configPath;
   if (!path) {
     const candidate = join(home, ".coolify-mcp", "config.json");

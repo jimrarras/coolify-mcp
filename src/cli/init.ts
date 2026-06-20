@@ -13,14 +13,19 @@ export interface InitConfigInput {
   instanceName: string;
   baseUrl: string;
   enableHostOps: boolean;
-  ssh?: { keyPath: string; hostServer?: string; host?: string; hasPassphrase: boolean; fingerprint?: string };
-  db?: { readonlyUser: string };
+  // false (default): write the actual secret values inline into the 0600 config so
+  // setup works immediately with no env vars. true (--env-secrets): write ${ENV}
+  // references instead, so the file holds no secret (operator sets the env vars).
+  envSecrets: boolean;
+  token: string;
+  ssh?: { keyPath: string; hostServer?: string; host?: string; passphrase?: string; fingerprint?: string };
+  db?: { readonlyUser: string; readonlyPassword?: string };
 }
 
 export function buildConfigObject(input: InitConfigInput): unknown {
   const inst: Record<string, unknown> = {
     baseUrl: input.baseUrl,
-    token: "${COOLIFY_TOKEN}",
+    token: input.envSecrets ? "${COOLIFY_TOKEN}" : input.token,
     enableHostOps: input.enableHostOps,
     allowDestructive: false,
   };
@@ -29,11 +34,16 @@ export function buildConfigObject(input: InitConfigInput): unknown {
     if (input.ssh.host) ssh.host = input.ssh.host;
     if (input.ssh.hostServer) ssh.hostServer = input.ssh.hostServer;
     if (input.ssh.fingerprint) ssh.fingerprint = input.ssh.fingerprint;
-    if (input.ssh.hasPassphrase) ssh.passphrase = "${COOLIFY_SSH_KEY_PASSPHRASE}";
+    if (input.ssh.passphrase) {
+      ssh.passphrase = input.envSecrets ? "${COOLIFY_SSH_KEY_PASSPHRASE}" : input.ssh.passphrase;
+    }
     inst.ssh = ssh;
   }
   if (input.db) {
-    inst.db = { readonlyUser: input.db.readonlyUser, readonlyPassword: "${COOLIFY_DB_RO_PASSWORD}" };
+    inst.db = {
+      readonlyUser: input.db.readonlyUser,
+      readonlyPassword: input.envSecrets ? "${COOLIFY_DB_RO_PASSWORD}" : input.db.readonlyPassword,
+    };
   }
   return { defaultInstance: input.instanceName, instances: { [input.instanceName]: inst } };
 }
@@ -64,6 +74,8 @@ export function generateDbRoleSql(user: string, password: string): string {
 export interface InitDeps {
   io: IO;
   env: Record<string, string | undefined>;
+  // When true, write ${ENV} references instead of inlining secrets (the --env-secrets flag).
+  envSecrets?: boolean;
   makeApi: (baseUrl: string, token: string) => { health(): Promise<unknown>; version(): Promise<string> };
   resolveControlHost: (baseUrl: string, token: string, hostServer?: string) => Promise<{ serverUuid: string; host: string; user: string; port: number }>;
   listServers: (baseUrl: string, token: string) => Promise<Array<{ uuid: string; name?: string }>>;
@@ -74,6 +86,7 @@ export interface InitDeps {
 
 export async function runInitFlow(deps: InitDeps): Promise<number> {
   const { io, env } = deps;
+  const envSecrets = deps.envSecrets ?? false;
   io.print("coolify-mcp setup\n");
 
   // 1. API
@@ -123,7 +136,7 @@ export async function runInitFlow(deps: InitDeps): Promise<number> {
         io.print(`Host key fingerprint: ${fingerprint}`);
         if (await io.confirm("Pin this fingerprint (verify it matches your host)?", false)) {
           enableHostOps = true;
-          ssh = { keyPath: found.path, hostServer, host: undefined, hasPassphrase: !!found.passphrase, fingerprint };
+          ssh = { keyPath: found.path, hostServer, host: undefined, passphrase: found.passphrase, fingerprint };
           io.print(`✓ host-ops will use ${found.path}`);
         } else {
           io.print("Fingerprint not confirmed — skipping host-ops.");
@@ -143,39 +156,53 @@ export async function runInitFlow(deps: InitDeps): Promise<number> {
       user = "coolify_ro";
     }
     const password = generatePassword();
-    db = { readonlyUser: user };
+    db = { readonlyUser: user, readonlyPassword: password };
     io.print("\nRun this SQL on your Coolify Postgres (psql -U postgres coolify):\n");
     io.print(generateDbRoleSql(user, password));
-    io.print(`\nThen set: COOLIFY_DB_RO_PASSWORD=${password}\n`);
+    io.print(
+      envSecrets
+        ? `\nThen set: COOLIFY_DB_RO_PASSWORD=${password}\n`
+        : `\n(The role password is saved in your config file.)\n`,
+    );
   }
 
   // 4. write config
-  const obj = buildConfigObject({ instanceName, baseUrl, enableHostOps, ssh, db });
+  const obj = buildConfigObject({ instanceName, baseUrl, enableHostOps, envSecrets, token, ssh, db });
   const path = deps.writeConfig(obj);
   io.print(`\n✓ wrote ${path}`);
 
   // 5. handoff
-  io.print("\nSet these environment variables (values shown once):");
-  io.print(`  COOLIFY_TOKEN=${token}`);
-  if (ssh?.hasPassphrase) io.print("  COOLIFY_SSH_KEY_PASSPHRASE=<the passphrase you entered>");
-  io.print("\nMCP client config:");
-  io.print(JSON.stringify({ mcpServers: { coolify: { command: "coolify-mcp", args: [], env: { COOLIFY_TOKEN: "<your token>" } } } }, null, 2));
-  io.print("\nVerify any time with:  coolify-mcp doctor");
+  if (envSecrets) {
+    io.print("\nThis config references secrets via ${ENV} — set them before running:");
+    io.print(`  COOLIFY_TOKEN=${token}`);
+    if (ssh?.passphrase) io.print("  COOLIFY_SSH_KEY_PASSPHRASE=<the passphrase you entered>");
+    io.print(`\n  (PowerShell: $env:COOLIFY_TOKEN="${token}"   bash: export COOLIFY_TOKEN="${token}")`);
+    io.print("\nMCP client config (put the secrets in the env block):");
+    io.print(JSON.stringify({ mcpServers: { coolify: { command: "coolify-mcp", args: [], env: { COOLIFY_TOKEN: "<your token>" } } } }, null, 2));
+    io.print("\nThen verify with:  coolify-mcp doctor");
+  } else {
+    io.print("Your credentials are saved in that file (mode 0600) — no environment variables needed.");
+    io.print("\nMCP client config:");
+    io.print(JSON.stringify({ mcpServers: { coolify: { command: "coolify-mcp", args: [] } } }, null, 2));
+    io.print("\nVerify now with:  coolify-mcp doctor");
+  }
   return 0;
 }
 
-export async function runInit(_argv: string[], env: Record<string, string | undefined>, io: IO = defaultIO): Promise<number> {
+export async function runInit(argv: string[], env: Record<string, string | undefined>, io: IO = defaultIO): Promise<number> {
+  const envSecrets = argv.includes("--env-secrets");
   try {
-    return await runInitFlowWithRealDeps(io, env);
+    return await runInitFlowWithRealDeps(io, env, envSecrets);
   } finally {
     io.close?.();
   }
 }
 
-function runInitFlowWithRealDeps(io: IO, env: Record<string, string | undefined>): Promise<number> {
+function runInitFlowWithRealDeps(io: IO, env: Record<string, string | undefined>, envSecrets: boolean): Promise<number> {
   return runInitFlow({
     io,
     env,
+    envSecrets,
     makeApi: (baseUrl, token) => new CoolifyApiClient({ baseUrl, token, extraHeaders: {} }),
     resolveControlHost: async (baseUrl, token, hostServer) => {
       const api = new CoolifyApiClient({ baseUrl, token, extraHeaders: {} });

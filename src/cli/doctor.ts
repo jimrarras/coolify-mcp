@@ -9,11 +9,11 @@ export async function runDoctor(
   argv: string[],
   env: Record<string, string | undefined>,
   out: (line: string) => void,
-  deps: { runChecks?: (inst: ResolvedInstance) => Promise<CheckResult[]> } = {},
+  deps: { runChecks?: (inst: ResolvedInstance) => Promise<CheckResult[]>; home?: string } = {},
 ): Promise<number> {
   let registry: InstanceRegistry;
   try {
-    registry = new InstanceRegistry(loadConfig(argv, env));
+    registry = new InstanceRegistry(loadConfig(argv, env, deps.home ? { home: deps.home } : undefined));
   } catch (e) {
     out(`config error: ${e instanceof Error ? e.message : String(e)}`);
     return 1;
