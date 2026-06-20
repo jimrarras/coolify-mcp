@@ -8,6 +8,15 @@ import { assertCoolifyTokenFormat } from "../validate.js";
 
 interface Flags { configPath?: string; enableHostOps: boolean; allowDestructive: boolean; extraHeaders: Record<string, string>; }
 
+// Thrown when no config source exists at all (no file + no COOLIFY_BASE_URL). The
+// CLI recognizes this to print actionable setup guidance instead of a stack trace.
+export const MISSING_CONFIG_MESSAGE = "No config file found and COOLIFY_BASE_URL is not set";
+
+/** True when the error is the "nothing is configured yet" case (vs a malformed config). */
+export function isMissingConfigError(e: unknown): boolean {
+  return e instanceof CoolifyError && e.message === MISSING_CONFIG_MESSAGE;
+}
+
 function parseFlags(argv: string[], env: Record<string, string | undefined>): Flags {
   const f: Flags = { enableHostOps: false, allowDestructive: false, extraHeaders: {} };
   for (let i = 0; i < argv.length; i++) {
@@ -53,7 +62,7 @@ function resolveSshPaths(cfg: AppConfig, home: string | undefined): void {
 
 function fromEnvFallback(flags: Flags, env: Record<string, string | undefined>): AppConfig {
   const baseUrl = env.COOLIFY_BASE_URL;
-  if (!baseUrl) throw new CoolifyError("invalid_input", "No config file found and COOLIFY_BASE_URL is not set");
+  if (!baseUrl) throw new CoolifyError("invalid_input", MISSING_CONFIG_MESSAGE);
   const token = env.COOLIFY_TOKEN;
   if (!token) throw new CoolifyError("invalid_input", "COOLIFY_TOKEN is required");
   const raw: Record<string, unknown> = {

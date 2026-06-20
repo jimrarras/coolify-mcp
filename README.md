@@ -16,9 +16,12 @@ npm install -g @jimrarras/coolify-mcp
 # dependencies — it installs on any machine with no C/C++ toolchain and runs no
 # install scripts. No flags needed.
 
-# Copy and fill in env
-cp .env.example .env
-$EDITOR .env
+# Configure — guided wizard writes ~/.coolify-mcp/config.json (recommended)
+coolify-mcp init
+
+# …or just set the two required env vars (token format: <id>|<secret>):
+export COOLIFY_BASE_URL="https://coolify.example.com"
+export COOLIFY_TOKEN="<id>|<secret>"
 
 # Run (API tier only)
 coolify-mcp

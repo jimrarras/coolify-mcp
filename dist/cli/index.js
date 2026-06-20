@@ -240,6 +240,9 @@ var init_env_expand = __esm({
 import { readFileSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+function isMissingConfigError(e) {
+  return e instanceof CoolifyError && e.message === MISSING_CONFIG_MESSAGE;
+}
 function parseFlags(argv, env) {
   const f = { enableHostOps: false, allowDestructive: false, extraHeaders: {} };
   for (let i = 0; i < argv.length; i++) {
@@ -284,7 +287,7 @@ function resolveSshPaths(cfg, home) {
 }
 function fromEnvFallback(flags, env) {
   const baseUrl = env.COOLIFY_BASE_URL;
-  if (!baseUrl) throw new CoolifyError("invalid_input", "No config file found and COOLIFY_BASE_URL is not set");
+  if (!baseUrl) throw new CoolifyError("invalid_input", MISSING_CONFIG_MESSAGE);
   const token = env.COOLIFY_TOKEN;
   if (!token) throw new CoolifyError("invalid_input", "COOLIFY_TOKEN is required");
   const raw = {
@@ -343,6 +346,7 @@ function loadConfig(argv, env) {
   resolveSshPaths(cfg, home);
   return cfg;
 }
+var MISSING_CONFIG_MESSAGE;
 var init_load = __esm({
   "src/core/config/load.ts"() {
     "use strict";
@@ -350,6 +354,7 @@ var init_load = __esm({
     init_env_expand();
     init_schema();
     init_validate();
+    MISSING_CONFIG_MESSAGE = "No config file found and COOLIFY_BASE_URL is not set";
   }
 });
 
@@ -42403,7 +42408,7 @@ function isLocalhost(host) {
 }
 function buildServer(registry2, tools) {
   const multi = registry2.names().length > 1;
-  const server = new Server({ name: "coolify-mcp", version: "0.1.0" }, { capabilities: { tools: {} } });
+  const server = new Server({ name: "coolify-mcp", version: "0.1.1" }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((t) => ({
       name: t.name,
@@ -42528,6 +42533,20 @@ var init_server3 = __esm({
 });
 
 // src/cli/index.ts
+init_config();
+function configGuidance() {
+  return [
+    "coolify-mcp is not configured yet.",
+    "",
+    "Set it up in one of these ways:",
+    "  1. Guided setup (recommended):  coolify-mcp init",
+    "  2. Environment variables:       set COOLIFY_BASE_URL and COOLIFY_TOKEN (token format: <id>|<secret>)",
+    "  3. Config file:                 ~/.coolify-mcp/config.json",
+    "",
+    "Then verify with:  coolify-mcp doctor",
+    "Docs: https://github.com/jimrarras/coolify-mcp#configuration"
+  ].join("\n");
+}
 async function dispatch2(argv, deps) {
   const sub = argv[0];
   const rest = argv.slice(1);
@@ -42541,8 +42560,16 @@ async function dispatch2(argv, deps) {
     return runInit2(rest, env);
   }
   const runServer = deps?.runServer ?? (await Promise.resolve().then(() => (init_server3(), server_exports))).main;
-  await runServer();
-  return 0;
+  try {
+    await runServer();
+    return 0;
+  } catch (e) {
+    if (isMissingConfigError(e)) {
+      process.stderr.write(configGuidance() + "\n");
+      return 1;
+    }
+    throw e;
+  }
 }
 var isMain = process.argv[1] ? new URL(import.meta.url).pathname === new URL(`file://${process.argv[1].replace(/\\/g, "/")}`).pathname : false;
 if (isMain) {
@@ -42558,5 +42585,6 @@ if (isMain) {
   );
 }
 export {
+  configGuidance,
   dispatch2 as dispatch
 };
