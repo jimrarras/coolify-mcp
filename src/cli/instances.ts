@@ -23,6 +23,31 @@ function requireKnown(instances: Record<string, unknown>, name: string | undefin
   return name;
 }
 
+function removeInstance(path: string, raw: RawConfig | null, name: string | undefined, out: Out): number {
+  const cfg = requireFile(raw);
+  const instances = instancesOf(cfg);
+  const target = requireKnown(instances, name);
+  const names = Object.keys(instances);
+  if (names.length === 1) {
+    out("error: cannot remove the only instance — a config must define at least one.");
+    return 1;
+  }
+  const isDefault = cfg.defaultInstance === target;
+  const remaining = names.filter((n) => n !== target);
+  if (isDefault && remaining.length > 1) {
+    out(`error: '${target}' is the default; set a new default first: coolify-mcp instances default <name>`);
+    out(`       remaining: ${remaining.join(", ")}`);
+    return 1;   // no write — file unchanged
+  }
+  delete instances[target];
+  cfg.instances = instances;
+  let note = "";
+  if (isDefault) { cfg.defaultInstance = remaining[0]; note = ` (default is now '${remaining[0]}')`; }
+  writeRawConfig(path, cfg);
+  out(`✓ removed instance '${target}'${note}`);
+  return 0;
+}
+
 function setDefault(path: string, raw: RawConfig | null, name: string | undefined, out: Out): number {
   const cfg = requireFile(raw);
   const instances = instancesOf(cfg);
@@ -73,6 +98,9 @@ export async function runInstances(
         return listInstances(raw, env, out);
       case "default":
         return setDefault(path, raw, positional[1], out);
+      case "rm":
+      case "remove":
+        return removeInstance(path, raw, positional[1], out);
       default:
         out(`Unknown action '${action}'. Usage: coolify-mcp instances [list|default <name>|rm <name>]`);
         return 1;

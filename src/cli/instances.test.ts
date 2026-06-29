@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join as pjoin, join } from "node:path";
 import { runInstances } from "./instances.js";
 
 let home: string;
@@ -97,5 +97,50 @@ describe("runInstances default", () => {
     const code = await runInstances(["default", "a"], {}, c.out, { home });
     expect(code).toBe(1);
     expect(c.text()).toMatch(/unknown instance 'a'/i);
+  });
+});
+
+describe("runInstances rm", () => {
+  function readBack() { return JSON.parse(readFileSync(pjoin(home, ".coolify-mcp", "config.json"), "utf8")); }
+
+  it("removes a non-default instance", async () => {
+    writeCfg({ defaultInstance: "a", instances: { a: { baseUrl: "https://a", token: "1|x" }, b: { baseUrl: "https://b", token: "2|y" } } });
+    const c = cap();
+    expect(await runInstances(["rm", "b"], {}, c.out, { home })).toBe(0);
+    expect(Object.keys(readBack().instances)).toEqual(["a"]);
+    expect(readBack().defaultInstance).toBe("a");
+  });
+
+  it("refuses to remove the only instance", async () => {
+    writeCfg({ defaultInstance: "a", instances: { a: { baseUrl: "https://a", token: "1|x" } } });
+    const c = cap();
+    expect(await runInstances(["rm", "a"], {}, c.out, { home })).toBe(1);
+    expect(c.text()).toMatch(/at least one|only instance/i);
+    expect(Object.keys(readBack().instances)).toEqual(["a"]);   // unchanged
+  });
+
+  it("auto-promotes the lone survivor when removing the default", async () => {
+    writeCfg({ defaultInstance: "a", instances: { a: { baseUrl: "https://a", token: "1|x" }, b: { baseUrl: "https://b", token: "2|y" } } });
+    const c = cap();
+    expect(await runInstances(["rm", "a"], {}, c.out, { home })).toBe(0);
+    const back = readBack();
+    expect(Object.keys(back.instances)).toEqual(["b"]);
+    expect(back.defaultInstance).toBe("b");
+    expect(c.text()).toMatch(/default.*b|b.*default/i);
+  });
+
+  it("refuses to remove the default when several remain (and does not write)", async () => {
+    writeCfg({ defaultInstance: "a", instances: { a: {}, b: {}, c: {} } });
+    const c = cap();
+    expect(await runInstances(["rm", "a"], {}, c.out, { home })).toBe(1);
+    expect(c.text()).toMatch(/set a new default first|instances default/i);
+    expect(Object.keys(readBack().instances).sort()).toEqual(["a", "b", "c"]);  // unchanged
+  });
+
+  it("errors on an unknown name", async () => {
+    writeCfg({ defaultInstance: "a", instances: { a: {}, b: {} } });
+    const c = cap();
+    expect(await runInstances(["rm", "zzz"], {}, c.out, { home })).toBe(1);
+    expect(c.text()).toMatch(/unknown instance 'zzz'/i);
   });
 });
