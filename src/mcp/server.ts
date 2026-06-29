@@ -113,7 +113,7 @@ function isLocalhost(host: string): boolean {
 /** Builds a configured MCP Server with the list/call handlers wired up. */
 function buildServer(registry: InstanceRegistry, tools: ToolDef[]): Server {
   const multi = registry.names().length > 1;
-  const server = new Server({ name: "coolify-mcp", version: "0.1.2" }, { capabilities: { tools: {} } });
+  const server = new Server({ name: "coolify-mcp", version: "0.2.0" }, { capabilities: { tools: {} } });
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((t) => ({
