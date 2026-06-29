@@ -42,6 +42,8 @@ export async function dispatch(
       resolver: inst.resolver,
       notifier,
       progressToken,
+      instances: registry.summaries(),
+      defaultInstance: registry.defaultName(),
     };
     toolResult = await tool.handler(toolArgs, ctx);
   } catch (e) {

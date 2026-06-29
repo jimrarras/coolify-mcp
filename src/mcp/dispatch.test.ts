@@ -8,6 +8,7 @@ function fakeRegistry(byName: Record<string, any>, def = "prod") {
   return {
     names: () => Object.keys(byName),
     defaultName: () => def,
+    summaries: () => [],
     get: (n?: string) => {
       const inst = byName[n ?? def];
       if (!inst) { throw new CoolifyError("invalid_input", `unknown instance: ${n}`); }
@@ -151,6 +152,23 @@ describe("dispatch basic behavior", () => {
     expect(parsed.error.message).toContain("-p8080:80");
     expect(parsed.error.message).not.toContain("***");
   });
+});
+
+it("injects instance summaries and the default name into ctx", async () => {
+  let seen: { instances?: unknown; defaultInstance?: string } = {};
+  const probe: ToolDef = {
+    name: "probe", description: "", tier: "api", inputSchema: { type: "object", properties: {}, required: [] },
+    handler: async (_args, ctx) => { seen = { instances: ctx.instances, defaultInstance: ctx.defaultInstance }; return { status: "ok" }; },
+  };
+  const registry = {
+    get: () => ({ name: "prod", config: { name: "prod" }, api: {}, resolver: {}, hostOps: async () => ({}) }),
+    summaries: () => [{ name: "prod", baseUrl: "https://prod", isDefault: true, enableHostOps: false, allowDestructive: false }],
+    defaultName: () => "prod",
+    names: () => ["prod"],
+  } as any;
+  await dispatch("probe", {}, [probe], registry);
+  expect(seen.defaultInstance).toBe("prod");
+  expect(seen.instances).toEqual([{ name: "prod", baseUrl: "https://prod", isDefault: true, enableHostOps: false, allowDestructive: false }]);
 });
 
 describe("get_servers end-to-end dispatch", () => {
