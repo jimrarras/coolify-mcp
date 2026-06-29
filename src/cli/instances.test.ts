@@ -44,4 +44,21 @@ describe("runInstances list", () => {
     expect(c.text()).toMatch(/env|environment/i);
     expect(c.text()).toContain("https://env-host");
   });
+
+  it("honors --config <path> and does not treat the path as the action", async () => {
+    const explicit = join(home, "explicit-config.json");
+    writeFileSync(explicit, JSON.stringify({ defaultInstance: "x", instances: { x: { baseUrl: "https://explicit", token: "1|s" } } }));
+    const c = cap();
+    const code = await runInstances(["--config", explicit, "list"], {}, c.out, { home });
+    expect(code).toBe(0);
+    expect(c.text()).toContain("x");
+    expect(c.text()).toContain("https://explicit");
+  });
+
+  it("guides to init when there is no config file and no COOLIFY_BASE_URL", async () => {
+    const c = cap();
+    const code = await runInstances([], {}, c.out, { home });
+    expect(code).toBe(0);
+    expect(c.text()).toMatch(/coolify-mcp init/);
+  });
 });
