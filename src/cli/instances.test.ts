@@ -90,4 +90,12 @@ describe("runInstances default", () => {
     expect(code).toBe(1);
     expect(c.text()).toMatch(/no config file/i);
   });
+
+  it("treats a malformed array 'instances' as empty and errors cleanly", async () => {
+    writeCfg({ defaultInstance: "a", instances: [] });
+    const c = cap();
+    const code = await runInstances(["default", "a"], {}, c.out, { home });
+    expect(code).toBe(1);
+    expect(c.text()).toMatch(/unknown instance 'a'/i);
+  });
 });

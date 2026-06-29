@@ -13,7 +13,7 @@ function requireFile(raw: RawConfig | null): RawConfig {
   return raw;
 }
 function instancesOf(raw: RawConfig): Record<string, unknown> {
-  return (raw.instances && typeof raw.instances === "object" ? raw.instances : {}) as Record<string, unknown>;
+  return (raw.instances && typeof raw.instances === "object" && !Array.isArray(raw.instances) ? raw.instances : {}) as Record<string, unknown>;
 }
 function requireKnown(instances: Record<string, unknown>, name: string | undefined): string {
   if (!name) throw new CoolifyError("invalid_input", "An instance name is required.");
