@@ -14,6 +14,13 @@ describe("dispatch", () => {
     await dispatch(["init"], { runDoctor: vi.fn(), runInit, runServer: vi.fn() });
     expect(runInit).toHaveBeenCalledOnce();
   });
+  it("routes 'instances' to runInstances with the remaining argv", async () => {
+    const runInstances = vi.fn(async () => 0);
+    const code = await dispatch(["instances", "rm", "stg"], { runDoctor: vi.fn(), runInit: vi.fn(), runServer: vi.fn(), runInstances });
+    expect(runInstances).toHaveBeenCalledOnce();
+    expect((runInstances.mock.calls[0] as unknown[] | undefined)?.[0]).toEqual(["rm", "stg"]);   // rest argv
+    expect(code).toBe(0);
+  });
   it("routes no-subcommand to runServer", async () => {
     const runServer = vi.fn(async () => {});
     await dispatch([], { runDoctor: vi.fn(), runInit: vi.fn(), runServer });
