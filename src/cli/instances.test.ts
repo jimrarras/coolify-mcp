@@ -1,6 +1,6 @@
 // src/cli/instances.test.ts
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as pjoin, join } from "node:path";
 import { runInstances } from "./instances.js";
@@ -117,6 +117,7 @@ describe("runInstances rm", () => {
     expect(await runInstances(["rm", "a"], {}, c.out, { home })).toBe(1);
     expect(c.text()).toMatch(/at least one|only instance/i);
     expect(Object.keys(readBack().instances)).toEqual(["a"]);   // unchanged
+    expect(existsSync(pjoin(home, ".coolify-mcp", "config.json.bak"))).toBe(false);
   });
 
   it("auto-promotes the lone survivor when removing the default", async () => {
@@ -135,6 +136,7 @@ describe("runInstances rm", () => {
     expect(await runInstances(["rm", "a"], {}, c.out, { home })).toBe(1);
     expect(c.text()).toMatch(/set a new default first|instances default/i);
     expect(Object.keys(readBack().instances).sort()).toEqual(["a", "b", "c"]);  // unchanged
+    expect(existsSync(pjoin(home, ".coolify-mcp", "config.json.bak"))).toBe(false);
   });
 
   it("errors on an unknown name", async () => {

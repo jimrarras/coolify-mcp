@@ -39,8 +39,9 @@ function removeInstance(path: string, raw: RawConfig | null, name: string | unde
     out(`       remaining: ${remaining.join(", ")}`);
     return 1;   // no write — file unchanged
   }
-  delete instances[target];
-  cfg.instances = instances;
+  const next = { ...instances };
+  delete next[target];
+  cfg.instances = next;
   let note = "";
   if (isDefault) { cfg.defaultInstance = remaining[0]; note = ` (default is now '${remaining[0]}')`; }
   writeRawConfig(path, cfg);
