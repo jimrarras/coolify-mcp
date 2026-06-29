@@ -215,4 +215,21 @@ describe("runInitFlow merge", () => {
     expect(out.instances.prod.token).toBe("1|new");   // inline by default
     expect(out.instances.stg.token).toBe("${STG}");   // untouched
   });
+
+  it("keeps the default unchanged when reconfiguring the current default (no make-default prompt)", async () => {
+    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://old", token: "${PROD}" }, stg: { baseUrl: "https://stg", token: "${STG}" } } };
+    const written: unknown[] = [];
+    // answers: baseUrl, token, name="prod", reconfigure? y, host-ops? n
+    // (no make-default question is asked because the reconfigured instance IS already the default)
+    const { deps: d } = deps(["https://new", "1|new", "prod", "y", "n"], {
+      readConfig: () => existing,
+      writeConfig: (o) => { written.push(o); return "/cfg"; },
+    });
+    const code = await runInitFlow(d);
+    expect(code).toBe(0);
+    const out = written[0] as { defaultInstance: string; instances: Record<string, { baseUrl: string }> };
+    expect(out.defaultInstance).toBe("prod");
+    expect(out.instances.prod.baseUrl).toBe("https://new");
+    expect(out.instances.stg.baseUrl).toBe("https://stg");
+  });
 });
