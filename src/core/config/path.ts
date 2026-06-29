@@ -14,7 +14,7 @@ export function resolveConfigPath(
   const i = argv.indexOf("--config");
   if (i !== -1) {
     const next = argv[i + 1];
-    if (next && !next.startsWith("--")) return next;
+    if (next !== undefined && !next.startsWith("--")) return next;
   }
   if (env.COOLIFY_CONFIG) return env.COOLIFY_CONFIG;
   return join(home, ".coolify-mcp", "config.json");
