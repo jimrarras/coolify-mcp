@@ -30,7 +30,7 @@ function reg() {
     api: { applications: { delete: async () => ({ message: "deleted" }) } }, resolver: {}, hostOps: async () => ({}),
   });
   const map: Record<string, any> = { prod: mk(false), staging: mk(true) };
-  return { names: () => Object.keys(map), defaultName: () => "prod", get: (n?: string) => map[n ?? "prod"] } as any;
+  return { names: () => Object.keys(map), defaultName: () => "prod", summaries: () => [], get: (n?: string) => map[n ?? "prod"] } as any;
 }
 it("destructive op blocked on prod (allowDestructive:false) but permitted on staging", async () => {
   const blocked = await dispatch("delete_resource", { type: "applications", uuid: "abc123", confirm: true }, [delResource], reg());

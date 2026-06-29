@@ -5,6 +5,7 @@ import { CoolifyError } from "../core/errors.js";
 interface DispatchDeps {
   runDoctor: (argv: string[], env: Record<string, string | undefined>, out: (l: string) => void) => Promise<number>;
   runInit: (argv: string[], env: Record<string, string | undefined>) => Promise<number>;
+  runInstances: (argv: string[], env: Record<string, string | undefined>, out: (l: string) => void) => Promise<number>;
   runServer: () => Promise<void>;
 }
 
@@ -35,6 +36,10 @@ export async function dispatch(argv: string[], deps?: Partial<DispatchDeps>): Pr
   if (sub === "init") {
     const runInit = deps?.runInit ?? (await import("./init.js")).runInit;
     return runInit(rest, env);
+  }
+  if (sub === "instances") {
+    const runInstances = deps?.runInstances ?? (await import("./instances.js")).runInstances;
+    return runInstances(rest, env, (l) => process.stdout.write(l + "\n"));
   }
   // No subcommand (or a server flag like --enable-host-ops): run the MCP server.
   const runServer = deps?.runServer ?? (await import("../mcp/server.js")).main;

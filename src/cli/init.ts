@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from "node:crypto";
-import { writeFileSync, mkdirSync, existsSync, copyFileSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { IO } from "./io.js";
@@ -8,6 +8,8 @@ import { CoolifyApiClient } from "../core/api/client.js";
 import { ServerResolver } from "../core/ssh/resolver.js";
 import { SshClient } from "../core/ssh/client.js";
 import { scanSshDir, discoverWorkingKey } from "./ssh-discover.js";
+import { resolveConfigPath } from "../core/config/path.js";
+import { readRawConfig, writeRawConfig, type RawConfig } from "./config-file.js";
 
 export interface InitConfigInput {
   instanceName: string;
@@ -22,7 +24,7 @@ export interface InitConfigInput {
   db?: { readonlyUser: string; readonlyPassword?: string };
 }
 
-export function buildConfigObject(input: InitConfigInput): unknown {
+export function buildInstanceObject(input: InitConfigInput): Record<string, unknown> {
   const inst: Record<string, unknown> = {
     baseUrl: input.baseUrl,
     token: input.envSecrets ? "${COOLIFY_TOKEN}" : input.token,
@@ -45,7 +47,11 @@ export function buildConfigObject(input: InitConfigInput): unknown {
       readonlyPassword: input.envSecrets ? "${COOLIFY_DB_RO_PASSWORD}" : input.db.readonlyPassword,
     };
   }
-  return { defaultInstance: input.instanceName, instances: { [input.instanceName]: inst } };
+  return inst;
+}
+
+export function buildConfigObject(input: InitConfigInput): unknown {
+  return { defaultInstance: input.instanceName, instances: { [input.instanceName]: buildInstanceObject(input) } };
 }
 
 export function generatePassword(bytes = 24): string {
@@ -76,6 +82,8 @@ export interface InitDeps {
   env: Record<string, string | undefined>;
   // When true, write ${ENV} references instead of inlining secrets (the --env-secrets flag).
   envSecrets?: boolean;
+  // Returns the current raw config (un-expanded) so init can merge; null when no file exists.
+  readConfig?: () => RawConfig | null;
   makeApi: (baseUrl: string, token: string) => { health(): Promise<unknown>; version(): Promise<string> };
   resolveControlHost: (baseUrl: string, token: string, hostServer?: string) => Promise<{ serverUuid: string; host: string; user: string; port: number }>;
   listServers: (baseUrl: string, token: string) => Promise<Array<{ uuid: string; name?: string }>>;
@@ -103,7 +111,17 @@ export async function runInitFlow(deps: InitDeps): Promise<number> {
     return 1;
   }
 
-  const instanceName = await io.prompt("Instance name", "default");
+  // Load any existing config so we MERGE (add/reconfigure one instance) rather than clobber.
+  const existing = (deps.readConfig?.() ?? null);
+  const existingInstances = (existing?.instances && typeof existing.instances === "object")
+    ? (existing.instances as Record<string, unknown>) : {};
+
+  // Pick a name; if it collides, confirm reconfigure or pick another.
+  let instanceName = await io.prompt("Instance name", "default");
+  while (existingInstances[instanceName] !== undefined) {
+    if (await io.confirm(`Reconfigure existing instance '${instanceName}'? (overwrites it)`, false)) break;
+    instanceName = await io.prompt("Choose a different instance name");
+  }
 
   // 2. host-ops
   let ssh: InitConfigInput["ssh"];
@@ -166,9 +184,24 @@ export async function runInitFlow(deps: InitDeps): Promise<number> {
     );
   }
 
-  // 4. write config
-  const obj = buildConfigObject({ instanceName, baseUrl, enableHostOps, envSecrets, token, ssh, db });
-  const path = deps.writeConfig(obj);
+  // 4. merge into existing config (preserve other instances and their ${ENV} refs verbatim)
+  const merged: RawConfig = { ...(existing ?? {}) };
+  const instancesOut: Record<string, unknown> = { ...existingInstances };
+  instancesOut[instanceName] = buildInstanceObject({ instanceName, baseUrl, enableHostOps, envSecrets, token, ssh, db });
+  merged.instances = instancesOut;
+
+  const priorDefault = typeof existing?.defaultInstance === "string" ? existing.defaultInstance : undefined;
+  const otherNames = Object.keys(existingInstances).filter((n) => n !== instanceName);
+  if (!priorDefault || otherNames.length === 0) {
+    merged.defaultInstance = instanceName;            // first/only instance
+  } else if (priorDefault !== instanceName) {
+    merged.defaultInstance = (await io.confirm(`Make '${instanceName}' the default? (current: ${priorDefault})`, false))
+      ? instanceName : priorDefault;
+  } else {
+    merged.defaultInstance = priorDefault;
+  }
+
+  const path = deps.writeConfig(merged);
   io.print(`\n✓ wrote ${path}`);
 
   // 5. handoff
@@ -192,17 +225,19 @@ export async function runInitFlow(deps: InitDeps): Promise<number> {
 export async function runInit(argv: string[], env: Record<string, string | undefined>, io: IO = defaultIO): Promise<number> {
   const envSecrets = argv.includes("--env-secrets");
   try {
-    return await runInitFlowWithRealDeps(io, env, envSecrets);
+    return await runInitFlowWithRealDeps(io, env, argv, envSecrets);
   } finally {
     io.close?.();
   }
 }
 
-function runInitFlowWithRealDeps(io: IO, env: Record<string, string | undefined>, envSecrets: boolean): Promise<number> {
+function runInitFlowWithRealDeps(io: IO, env: Record<string, string | undefined>, argv: string[], envSecrets: boolean): Promise<number> {
+  const cfgPath = resolveConfigPath(argv, env, homedir());
   return runInitFlow({
     io,
     env,
     envSecrets,
+    readConfig: () => readRawConfig(cfgPath),
     makeApi: (baseUrl, token) => new CoolifyApiClient({ baseUrl, token, extraHeaders: {} }),
     resolveControlHost: async (baseUrl, token, hostServer) => {
       const api = new CoolifyApiClient({ baseUrl, token, extraHeaders: {} });
@@ -233,13 +268,6 @@ function runInitFlowWithRealDeps(io: IO, env: Record<string, string | undefined>
       }
       return "(unknown — add the host to ~/.ssh/known_hosts first: ssh-keyscan -t ed25519 " + host + " >> ~/.ssh/known_hosts)";
     },
-    writeConfig: (obj) => {
-      const dir = join(homedir(), ".coolify-mcp");
-      mkdirSync(dir, { recursive: true });
-      const cfgPath = join(dir, "config.json");
-      if (existsSync(cfgPath)) copyFileSync(cfgPath, cfgPath + ".bak");
-      writeFileSync(cfgPath, JSON.stringify(obj, null, 2), { mode: 0o600 });
-      return cfgPath;
-    },
+    writeConfig: (obj) => { writeRawConfig(cfgPath, obj); return cfgPath; },
   });
 }

@@ -14706,7 +14706,7 @@ var require_SFTP = __commonJS({
         let pos = 0;
         let handle;
         let bytesRead = 0;
-        const flag = options.flag || "r";
+        const flag2 = options.flag || "r";
         const read = () => {
           if (size === 0) {
             buffer = Buffer.allocUnsafe(8192);
@@ -14754,7 +14754,7 @@ var require_SFTP = __commonJS({
             return callback && callback(er, buffer);
           });
         };
-        this.open(path, flag, 438, (er, handle_) => {
+        this.open(path, flag2, 438, (er, handle_) => {
           if (er)
             return callback && callback(er);
           handle = handle_;
@@ -14799,13 +14799,13 @@ var require_SFTP = __commonJS({
           throw new TypeError("Bad arguments");
         if (options.encoding && !Buffer.isEncoding(options.encoding))
           throw new Error(`Unknown encoding: ${options.encoding}`);
-        const flag = options.flag || "w";
-        this.open(path, flag, options.mode, (openErr, handle) => {
+        const flag2 = options.flag || "w";
+        this.open(path, flag2, options.mode, (openErr, handle) => {
           if (openErr) {
             callback && callback(openErr);
           } else {
             const buffer = Buffer.isBuffer(data) ? data : Buffer.from("" + data, options.encoding || "utf8");
-            const position = /a/.test(flag) ? null : 0;
+            const position = /a/.test(flag2) ? null : 0;
             if (position === null) {
               const tryStat = (er, st) => {
                 if (er) {
@@ -22037,6 +22037,16 @@ var init_registry = __esm({
         this.cache.set(key, resolved);
         return resolved;
       }
+      /** Secret-free summary of every configured instance (for list_instances). */
+      summaries() {
+        return Object.values(this.cfg.instances).map((c) => ({
+          name: c.name,
+          baseUrl: c.baseUrl,
+          isDefault: c.name === this.cfg.defaultInstance,
+          enableHostOps: c.enableHostOps,
+          allowDestructive: c.allowDestructive
+        }));
+      }
     };
   }
 });
@@ -22356,10 +22366,56 @@ var init_ssh_discover = __esm({
   }
 });
 
+// src/core/config/path.ts
+import { join as join4 } from "node:path";
+function resolveConfigPath(argv, env, home) {
+  const i = argv.indexOf("--config");
+  if (i !== -1) {
+    const next = argv[i + 1];
+    if (next !== void 0 && !next.startsWith("--")) return next;
+  }
+  if (env.COOLIFY_CONFIG) return env.COOLIFY_CONFIG;
+  return join4(home, ".coolify-mcp", "config.json");
+}
+var init_path = __esm({
+  "src/core/config/path.ts"() {
+    "use strict";
+  }
+});
+
+// src/cli/config-file.ts
+import { readFileSync as readFileSync4, writeFileSync, existsSync as existsSync2, mkdirSync, copyFileSync } from "node:fs";
+import { dirname } from "node:path";
+function readRawConfig(path) {
+  if (!existsSync2(path)) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync4(path, "utf8"));
+  } catch (e) {
+    throw new CoolifyError("invalid_input", `config: failed to read/parse ${path}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new CoolifyError("invalid_input", `config: ${path} must contain a JSON object`);
+  }
+  return parsed;
+}
+function writeRawConfig(path, obj) {
+  mkdirSync(dirname(path), { recursive: true });
+  if (existsSync2(path)) copyFileSync(path, path + ".bak");
+  writeFileSync(path, JSON.stringify(obj, null, 2), { mode: 384 });
+}
+var init_config_file = __esm({
+  "src/cli/config-file.ts"() {
+    "use strict";
+    init_errors();
+  }
+});
+
 // src/cli/init.ts
 var init_exports = {};
 __export(init_exports, {
   buildConfigObject: () => buildConfigObject,
+  buildInstanceObject: () => buildInstanceObject,
   generateDbRoleSql: () => generateDbRoleSql,
   generatePassword: () => generatePassword,
   isValidDbRoleName: () => isValidDbRoleName,
@@ -22367,10 +22423,10 @@ __export(init_exports, {
   runInitFlow: () => runInitFlow
 });
 import { randomBytes, createHash as createHash2 } from "node:crypto";
-import { writeFileSync, mkdirSync, existsSync as existsSync2, copyFileSync, readFileSync as readFileSync4 } from "node:fs";
-import { join as join4 } from "node:path";
+import { readFileSync as readFileSync5 } from "node:fs";
+import { join as join5 } from "node:path";
 import { homedir as homedir4 } from "node:os";
-function buildConfigObject(input) {
+function buildInstanceObject(input) {
   const inst = {
     baseUrl: input.baseUrl,
     token: input.envSecrets ? "${COOLIFY_TOKEN}" : input.token,
@@ -22393,7 +22449,10 @@ function buildConfigObject(input) {
       readonlyPassword: input.envSecrets ? "${COOLIFY_DB_RO_PASSWORD}" : input.db.readonlyPassword
     };
   }
-  return { defaultInstance: input.instanceName, instances: { [input.instanceName]: inst } };
+  return inst;
+}
+function buildConfigObject(input) {
+  return { defaultInstance: input.instanceName, instances: { [input.instanceName]: buildInstanceObject(input) } };
 }
 function generatePassword(bytes = 24) {
   return randomBytes(bytes + 12).toString("base64").replace(/[+/=]/g, "").slice(0, 32);
@@ -22429,7 +22488,13 @@ async function runInitFlow(deps) {
     io.print("  The token must be '<id>|<secret>' with scope: write + read:sensitive.");
     return 1;
   }
-  const instanceName = await io.prompt("Instance name", "default");
+  const existing = deps.readConfig?.() ?? null;
+  const existingInstances = existing?.instances && typeof existing.instances === "object" ? existing.instances : {};
+  let instanceName = await io.prompt("Instance name", "default");
+  while (existingInstances[instanceName] !== void 0) {
+    if (await io.confirm(`Reconfigure existing instance '${instanceName}'? (overwrites it)`, false)) break;
+    instanceName = await io.prompt("Choose a different instance name");
+  }
   let ssh;
   let enableHostOps = false;
   if (await io.confirm("Enable host-ops (SSH/Docker/live logs)?", false)) {
@@ -22489,8 +22554,20 @@ Then set: COOLIFY_DB_RO_PASSWORD=${password}
 `
     );
   }
-  const obj = buildConfigObject({ instanceName, baseUrl, enableHostOps, envSecrets, token, ssh, db });
-  const path = deps.writeConfig(obj);
+  const merged = { ...existing ?? {} };
+  const instancesOut = { ...existingInstances };
+  instancesOut[instanceName] = buildInstanceObject({ instanceName, baseUrl, enableHostOps, envSecrets, token, ssh, db });
+  merged.instances = instancesOut;
+  const priorDefault = typeof existing?.defaultInstance === "string" ? existing.defaultInstance : void 0;
+  const otherNames = Object.keys(existingInstances).filter((n) => n !== instanceName);
+  if (!priorDefault || otherNames.length === 0) {
+    merged.defaultInstance = instanceName;
+  } else if (priorDefault !== instanceName) {
+    merged.defaultInstance = await io.confirm(`Make '${instanceName}' the default? (current: ${priorDefault})`, false) ? instanceName : priorDefault;
+  } else {
+    merged.defaultInstance = priorDefault;
+  }
+  const path = deps.writeConfig(merged);
   io.print(`
 \u2713 wrote ${path}`);
   if (envSecrets) {
@@ -22513,16 +22590,18 @@ Then set: COOLIFY_DB_RO_PASSWORD=${password}
 async function runInit(argv, env, io = defaultIO) {
   const envSecrets = argv.includes("--env-secrets");
   try {
-    return await runInitFlowWithRealDeps(io, env, envSecrets);
+    return await runInitFlowWithRealDeps(io, env, argv, envSecrets);
   } finally {
     io.close?.();
   }
 }
-function runInitFlowWithRealDeps(io, env, envSecrets) {
+function runInitFlowWithRealDeps(io, env, argv, envSecrets) {
+  const cfgPath = resolveConfigPath(argv, env, homedir4());
   return runInitFlow({
     io,
     env,
     envSecrets,
+    readConfig: () => readRawConfig(cfgPath),
     makeApi: (baseUrl, token) => new CoolifyApiClient({ baseUrl, token, extraHeaders: {} }),
     resolveControlHost: async (baseUrl, token, hostServer) => {
       const api = new CoolifyApiClient({ baseUrl, token, extraHeaders: {} });
@@ -22535,14 +22614,14 @@ function runInitFlowWithRealDeps(io, env, envSecrets) {
     discoverKey: async (host, user, port) => discoverWorkingKey({
       candidates: scanSshDir(),
       tryKey: async (path, passphrase) => {
-        const c = new SshClient({ host, user, port, keyPath: path, passphrase, knownHostsPath: join4(homedir4(), ".ssh", "known_hosts") });
+        const c = new SshClient({ host, user, port, keyPath: path, passphrase, knownHostsPath: join5(homedir4(), ".ssh", "known_hosts") });
         await c.connect();
         await c.close();
       },
       askPassphrase: (path) => io.promptMasked(`Passphrase for ${path}`)
     }),
     getFingerprint: async (host, port) => {
-      const kh = readFileSync4(join4(homedir4(), ".ssh", "known_hosts"), "utf8");
+      const kh = readFileSync5(join5(homedir4(), ".ssh", "known_hosts"), "utf8");
       for (const line of kh.split(/\r?\n/)) {
         const parts = line.trim().split(/\s+/);
         if (parts.length >= 3 && (parts[0] === host || parts[0] === `[${host}]:${port}`)) {
@@ -22553,11 +22632,7 @@ function runInitFlowWithRealDeps(io, env, envSecrets) {
       return "(unknown \u2014 add the host to ~/.ssh/known_hosts first: ssh-keyscan -t ed25519 " + host + " >> ~/.ssh/known_hosts)";
     },
     writeConfig: (obj) => {
-      const dir = join4(homedir4(), ".coolify-mcp");
-      mkdirSync(dir, { recursive: true });
-      const cfgPath = join4(dir, "config.json");
-      if (existsSync2(cfgPath)) copyFileSync(cfgPath, cfgPath + ".bak");
-      writeFileSync(cfgPath, JSON.stringify(obj, null, 2), { mode: 384 });
+      writeRawConfig(cfgPath, obj);
       return cfgPath;
     }
   });
@@ -22570,6 +22645,126 @@ var init_init = __esm({
     init_resolver();
     init_client2();
     init_ssh_discover();
+    init_path();
+    init_config_file();
+  }
+});
+
+// src/cli/instances.ts
+var instances_exports = {};
+__export(instances_exports, {
+  runInstances: () => runInstances
+});
+import { homedir as homedir5 } from "node:os";
+function flag(v) {
+  return v === true ? "on" : "off";
+}
+function requireFile(raw) {
+  if (!raw) throw new CoolifyError("invalid_input", "No config file to edit. Run 'coolify-mcp init' to create one.");
+  return raw;
+}
+function instancesOf(raw) {
+  return raw.instances && typeof raw.instances === "object" && !Array.isArray(raw.instances) ? raw.instances : {};
+}
+function requireKnown(instances, name) {
+  if (!name) throw new CoolifyError("invalid_input", "An instance name is required.");
+  if (instances[name] === void 0) {
+    throw new CoolifyError("invalid_input", `Unknown instance '${name}'; known: ${Object.keys(instances).join(", ") || "(none)"}`);
+  }
+  return name;
+}
+function removeInstance(path, raw, name, out) {
+  const cfg = requireFile(raw);
+  const instances = instancesOf(cfg);
+  const target = requireKnown(instances, name);
+  const names = Object.keys(instances);
+  if (names.length === 1) {
+    out("error: cannot remove the only instance \u2014 a config must define at least one.");
+    return 1;
+  }
+  const isDefault = cfg.defaultInstance === target;
+  const remaining = names.filter((n) => n !== target);
+  if (isDefault && remaining.length > 1) {
+    out(`error: '${target}' is the default; set a new default first: coolify-mcp instances default <name>`);
+    out(`       remaining: ${remaining.join(", ")}`);
+    return 1;
+  }
+  const next = { ...instances };
+  delete next[target];
+  cfg.instances = next;
+  let note = "";
+  if (isDefault) {
+    cfg.defaultInstance = remaining[0];
+    note = ` (default is now '${remaining[0]}')`;
+  }
+  writeRawConfig(path, cfg);
+  out(`\u2713 removed instance '${target}'${note}`);
+  return 0;
+}
+function setDefault(path, raw, name, out) {
+  const cfg = requireFile(raw);
+  const instances = instancesOf(cfg);
+  const target = requireKnown(instances, name);
+  cfg.defaultInstance = target;
+  writeRawConfig(path, cfg);
+  out(`\u2713 default instance is now '${target}'`);
+  return 0;
+}
+function listInstances(raw, env, out) {
+  if (!raw) {
+    if (env.COOLIFY_BASE_URL) {
+      out("No config file \u2014 using environment variables (single 'default' instance):");
+      out(`  * default  ${env.COOLIFY_BASE_URL}`);
+    } else {
+      out("No config file and COOLIFY_BASE_URL is not set. Run 'coolify-mcp init'.");
+    }
+    return 0;
+  }
+  const instances = raw.instances ?? {};
+  const def = typeof raw.defaultInstance === "string" ? raw.defaultInstance : void 0;
+  const names = Object.keys(instances);
+  if (names.length === 0) {
+    out("Config file has no instances.");
+    return 0;
+  }
+  out("instances (* = default):");
+  for (const name of names) {
+    const i = instances[name] ?? {};
+    const mark = name === def ? "*" : " ";
+    out(`  ${mark} ${name}  ${String(i.baseUrl ?? "")}  host-ops:${flag(i.enableHostOps)}  destructive:${flag(i.allowDestructive)}`);
+  }
+  return 0;
+}
+async function runInstances(argv, env, out, deps = {}) {
+  const home = deps.home ?? homedir5();
+  const path = resolveConfigPath(argv, env, home);
+  const positional = argv.filter((a, idx) => !a.startsWith("--") && argv[idx - 1] !== "--config");
+  const action = positional[0] ?? "list";
+  try {
+    const raw = readRawConfig(path);
+    switch (action) {
+      case "list":
+        return listInstances(raw, env, out);
+      case "default":
+        return setDefault(path, raw, positional[1], out);
+      case "rm":
+      case "remove":
+        return removeInstance(path, raw, positional[1], out);
+      default:
+        out(`Unknown action '${action}'. Usage: coolify-mcp instances [list|default <name>|rm <name>]`);
+        return 1;
+    }
+  } catch (e) {
+    out(`error: ${e instanceof CoolifyError ? e.message : e instanceof Error ? e.message : String(e)}`);
+    return 1;
+  }
+}
+var init_instances = __esm({
+  "src/cli/instances.ts"() {
+    "use strict";
+    init_path();
+    init_config_file();
+    init_errors();
   }
 });
 
@@ -40052,7 +40247,9 @@ async function dispatch(name, args, tools, registry2, notifier, progressToken) {
       hostOps: inst.hostOps,
       resolver: inst.resolver,
       notifier,
-      progressToken
+      progressToken,
+      instances: registry2.summaries(),
+      defaultInstance: registry2.defaultName()
     };
     toolResult = await tool.handler(toolArgs, ctx);
   } catch (e) {
@@ -42082,11 +42279,38 @@ var init_projects2 = __esm({
   }
 });
 
+// src/mcp/tools/instances.ts
+var listInstances2, TOOLS10;
+var init_instances2 = __esm({
+  "src/mcp/tools/instances.ts"() {
+    "use strict";
+    init_errors();
+    listInstances2 = async (_args, ctx) => {
+      return ok({ default: ctx.defaultInstance, instances: ctx.instances ?? [] });
+    };
+    TOOLS10 = [
+      {
+        name: "list_instances",
+        description: "List the Coolify instances this server is configured to drive (names, base URLs, default, and per-instance host-ops/destructive flags). Never returns tokens or other secrets. Pass an instance name as the 'instance' arg to any other tool to route to it.",
+        tier: "api",
+        inputSchema: {
+          type: "object",
+          properties: {
+            instance: { type: "string", description: "Not used for routing here \u2014 the instance list is server-global. Pass an instance name to any OTHER tool to target a specific Coolify instance." }
+          },
+          required: []
+        },
+        handler: listInstances2
+      }
+    ];
+  }
+});
+
 // src/mcp/tools/host.ts
 function isDestructiveDockerAction(action) {
   return !SAFE_READONLY_DOCKER_ACTIONS.has(action.trim().toLowerCase());
 }
-var SAFE_READONLY_DOCKER_ACTIONS, DOCKER_ACTION_RE, SHELL_META_RE, sshExecTool, dockerOpTool, queryCoolifyDbTool, readHostFileTool, TOOLS10;
+var SAFE_READONLY_DOCKER_ACTIONS, DOCKER_ACTION_RE, SHELL_META_RE, sshExecTool, dockerOpTool, queryCoolifyDbTool, readHostFileTool, TOOLS11;
 var init_host = __esm({
   "src/mcp/tools/host.ts"() {
     "use strict";
@@ -42345,7 +42569,7 @@ var init_host = __esm({
         }
       }
     };
-    TOOLS10 = [
+    TOOLS11 = [
       sshExecTool,
       dockerOpTool,
       queryCoolifyDbTool,
@@ -42376,7 +42600,8 @@ function getAllTools(flags) {
     ...TOOLS7,
     ...TOOLS8,
     ...TOOLS9,
-    ...TOOLS10
+    ...TOOLS10,
+    ...TOOLS11
   ];
   return flags.enableHostOps ? all : all.filter((t) => t.tier !== "host");
 }
@@ -42432,7 +42657,7 @@ function isLocalhost(host) {
 }
 function buildServer(registry2, tools) {
   const multi = registry2.names().length > 1;
-  const server = new Server({ name: "coolify-mcp", version: "0.1.2" }, { capabilities: { tools: {} } });
+  const server = new Server({ name: "coolify-mcp", version: "0.2.0" }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((t) => ({
       name: t.name,
@@ -42551,6 +42776,7 @@ var init_server3 = __esm({
     init_logs();
     init_servers2();
     init_projects2();
+    init_instances2();
     init_host();
     MIN_HTTP_TOKEN_LENGTH = 16;
   }
@@ -42583,6 +42809,10 @@ async function dispatch2(argv, deps) {
   if (sub === "init") {
     const runInit2 = deps?.runInit ?? (await Promise.resolve().then(() => (init_init(), init_exports))).runInit;
     return runInit2(rest, env);
+  }
+  if (sub === "instances") {
+    const runInstances2 = deps?.runInstances ?? (await Promise.resolve().then(() => (init_instances(), instances_exports))).runInstances;
+    return runInstances2(rest, env, (l) => process.stdout.write(l + "\n"));
   }
   const runServer = deps?.runServer ?? (await Promise.resolve().then(() => (init_server3(), server_exports))).main;
   try {

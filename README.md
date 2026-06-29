@@ -240,6 +240,22 @@ Example tool call routing to the non-default instance:
 
 `enableHostOps`/`allowDestructive` are **per-instance** — you can allow destructive actions on staging while keeping them blocked on prod.
 
+#### Managing instances
+
+`init` **merges** into your existing `~/.coolify-mcp/config.json` — re-run it to add another
+instance (it asks for a name, whether to make it the default, and confirms before overwriting an
+existing one; your other instances are left untouched).
+
+```bash
+coolify-mcp instances                 # list configured instances (* = default); never prints secrets
+coolify-mcp instances default <name>  # set the default instance
+coolify-mcp instances rm <name>       # remove an instance
+```
+
+`instances rm` refuses to remove the only instance, and refuses to remove the current default while
+several remain (set a new default first with `instances default <name>`); removing the default when a
+single instance is left auto-promotes the survivor.
+
 ### 6. CLI flags + back-compat
 
 When no config file is used, the legacy flags and environment variables still work and map onto the synthesized `default` instance:
@@ -338,6 +354,12 @@ Destructive host actions (docker rm/rmi/stop/kill/prune/exec) additionally requi
 | Tool | Tier | Description |
 |---|---|---|
 | `manage_projects` | R/W/D | List, get, create, update, or delete projects and their environments. |
+
+### Instances
+
+| Tool | Tier | Description |
+|---|---|---|
+| `list_instances` | R | List configured Coolify instances (names, base URLs, default, tier flags). Never returns secrets. |
 
 ### Servers & Keys
 

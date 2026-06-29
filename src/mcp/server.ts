@@ -21,13 +21,14 @@ import { TOOLS as envTools } from "./tools/env.js";
 import { TOOLS as logTools } from "./tools/logs.js";
 import { TOOLS as serverTools } from "./tools/servers.js";
 import { TOOLS as projectTools } from "./tools/projects.js";
+import { TOOLS as instanceTools } from "./tools/instances.js";
 import { TOOLS as hostTools } from "./tools/host.js";
 
 /** All ToolDefs, host tier filtered out unless enableHostOps. Exported for tests. */
 export function getAllTools(flags: { enableHostOps: boolean }): ToolDef[] {
   const all = [
     ...deployTools, ...resourceTools, ...storageTools, ...backupTools, ...scheduledTaskTools,
-    ...envTools, ...logTools, ...serverTools, ...projectTools, ...hostTools,
+    ...envTools, ...logTools, ...serverTools, ...projectTools, ...instanceTools, ...hostTools,
   ];
   return flags.enableHostOps ? all : all.filter((t) => t.tier !== "host");
 }
@@ -112,7 +113,7 @@ function isLocalhost(host: string): boolean {
 /** Builds a configured MCP Server with the list/call handlers wired up. */
 function buildServer(registry: InstanceRegistry, tools: ToolDef[]): Server {
   const multi = registry.names().length > 1;
-  const server = new Server({ name: "coolify-mcp", version: "0.1.2" }, { capabilities: { tools: {} } });
+  const server = new Server({ name: "coolify-mcp", version: "0.2.0" }, { capabilities: { tools: {} } });
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((t) => ({

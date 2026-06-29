@@ -33,3 +33,30 @@ describe("InstanceRegistry", () => {
     await expect(r.get("prod").hostOps()).rejects.toMatchObject({ kind: "host_ops_disabled" });
   });
 });
+
+describe("InstanceRegistry.summaries", () => {
+  const cfg: AppConfig = {
+    defaultInstance: "prod",
+    instances: {
+      prod: { name: "prod", baseUrl: "https://prod", token: "1|secret", extraHeaders: {}, enableHostOps: false, allowDestructive: false },
+      stg:  { name: "stg",  baseUrl: "https://stg",  token: "2|secret", extraHeaders: {}, enableHostOps: true,  allowDestructive: true,
+              ssh: { keyPath: "/k", passphrase: "pp" } },
+    },
+  };
+
+  it("returns one secret-free summary per instance with the default marked", () => {
+    const s = new InstanceRegistry(cfg).summaries();
+    expect(s).toEqual([
+      { name: "prod", baseUrl: "https://prod", isDefault: true,  enableHostOps: false, allowDestructive: false },
+      { name: "stg",  baseUrl: "https://stg",  isDefault: false, enableHostOps: true,  allowDestructive: true },
+    ]);
+    expect(JSON.stringify(s)).not.toContain("secret");
+    expect(JSON.stringify(s)).not.toContain("pp");
+    for (const summary of s) {
+      expect(summary).not.toHaveProperty("token");
+      expect(summary).not.toHaveProperty("ssh");
+      expect(summary).not.toHaveProperty("db");
+      expect(summary).not.toHaveProperty("extraHeaders");
+    }
+  });
+});
