@@ -1,6 +1,6 @@
 // src/cli/instances.test.ts
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runInstances } from "./instances.js";
@@ -60,5 +60,34 @@ describe("runInstances list", () => {
     const code = await runInstances([], {}, c.out, { home });
     expect(code).toBe(0);
     expect(c.text()).toMatch(/coolify-mcp init/);
+  });
+});
+
+describe("runInstances default", () => {
+  function readBack() { return JSON.parse(readFileSync(join(home, ".coolify-mcp", "config.json"), "utf8")); }
+
+  it("sets the default to an existing instance", async () => {
+    writeCfg({ defaultInstance: "a", instances: { a: { baseUrl: "https://a", token: "1|x" }, b: { baseUrl: "https://b", token: "2|y" } } });
+    const c = cap();
+    const code = await runInstances(["default", "b"], {}, c.out, { home });
+    expect(code).toBe(0);
+    expect(readBack().defaultInstance).toBe("b");
+  });
+
+  it("errors on an unknown instance name and does not write", async () => {
+    writeCfg({ defaultInstance: "a", instances: { a: { baseUrl: "https://a", token: "1|x" } } });
+    const c = cap();
+    const code = await runInstances(["default", "nope"], {}, c.out, { home });
+    expect(code).toBe(1);
+    expect(c.text()).toMatch(/unknown instance 'nope'/i);
+    expect(c.text()).toContain("a");                 // lists known names
+    expect(readBack().defaultInstance).toBe("a");    // unchanged
+  });
+
+  it("errors when there is no config file", async () => {
+    const c = cap();
+    const code = await runInstances(["default", "a"], {}, c.out, { home });
+    expect(code).toBe(1);
+    expect(c.text()).toMatch(/no config file/i);
   });
 });
