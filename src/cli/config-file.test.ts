@@ -51,6 +51,13 @@ describe("writeRawConfig", () => {
     writeRawConfig(p, { instances: {} });
     expect(statSync(p).mode & 0o777).toBe(0o600);
   });
+  it("forces the .bak backup to mode 0600 even if the source was permissive (POSIX only)", () => {
+    if (process.platform === "win32") return; // mode bits not enforced on Windows
+    const p = join(dir, "config.json");
+    writeFileSync(p, JSON.stringify({ instances: {} }), { mode: 0o644 });
+    writeRawConfig(p, { instances: { a: {} } });
+    expect(statSync(p + ".bak").mode & 0o777).toBe(0o600);
+  });
   it("writes indented (pretty) JSON", () => {
     const p = join(dir, "pretty.json");
     writeRawConfig(p, { instances: { a: {} } });

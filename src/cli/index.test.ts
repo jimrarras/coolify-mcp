@@ -15,10 +15,10 @@ describe("dispatch", () => {
     expect(runInit).toHaveBeenCalledOnce();
   });
   it("routes 'instances' to runInstances with the remaining argv", async () => {
-    const runInstances = vi.fn(async () => 0);
+    const runInstances = vi.fn<(argv: string[], env: Record<string, string | undefined>, out: (l: string) => void) => Promise<number>>(async () => 0);
     const code = await dispatch(["instances", "rm", "stg"], { runDoctor: vi.fn(), runInit: vi.fn(), runServer: vi.fn(), runInstances });
     expect(runInstances).toHaveBeenCalledOnce();
-    expect((runInstances.mock.calls[0] as unknown[] | undefined)?.[0]).toEqual(["rm", "stg"]);   // rest argv
+    expect(runInstances.mock.calls[0][0]).toEqual(["rm", "stg"]);   // rest argv (mock typed → no cast needed)
     expect(code).toBe(0);
   });
   it("routes no-subcommand to runServer", async () => {

@@ -22384,13 +22384,19 @@ var init_path = __esm({
 });
 
 // src/cli/config-file.ts
-import { readFileSync as readFileSync4, writeFileSync, existsSync as existsSync2, mkdirSync, copyFileSync } from "node:fs";
+import { readFileSync as readFileSync4, writeFileSync, existsSync as existsSync2, mkdirSync, copyFileSync, chmodSync } from "node:fs";
 import { dirname } from "node:path";
 function readRawConfig(path) {
-  if (!existsSync2(path)) return null;
+  let text;
+  try {
+    text = readFileSync4(path, "utf8");
+  } catch (e) {
+    if (e.code === "ENOENT") return null;
+    throw new CoolifyError("invalid_input", `config: failed to read/parse ${path}: ${e instanceof Error ? e.message : String(e)}`);
+  }
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync4(path, "utf8"));
+    parsed = JSON.parse(text);
   } catch (e) {
     throw new CoolifyError("invalid_input", `config: failed to read/parse ${path}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -22401,7 +22407,10 @@ function readRawConfig(path) {
 }
 function writeRawConfig(path, obj) {
   mkdirSync(dirname(path), { recursive: true });
-  if (existsSync2(path)) copyFileSync(path, path + ".bak");
+  if (existsSync2(path)) {
+    copyFileSync(path, path + ".bak");
+    chmodSync(path + ".bak", 384);
+  }
   writeFileSync(path, JSON.stringify(obj, null, 2), { mode: 384 });
 }
 var init_config_file = __esm({
@@ -22720,7 +22729,7 @@ function listInstances(raw, env, out) {
     }
     return 0;
   }
-  const instances = raw.instances ?? {};
+  const instances = instancesOf(raw);
   const def = typeof raw.defaultInstance === "string" ? raw.defaultInstance : void 0;
   const names = Object.keys(instances);
   if (names.length === 0) {
@@ -22729,7 +22738,7 @@ function listInstances(raw, env, out) {
   }
   out("instances (* = default):");
   for (const name of names) {
-    const i = instances[name] ?? {};
+    const i = instances[name];
     const mark = name === def ? "*" : " ";
     out(`  ${mark} ${name}  ${String(i.baseUrl ?? "")}  host-ops:${flag(i.enableHostOps)}  destructive:${flag(i.allowDestructive)}`);
   }

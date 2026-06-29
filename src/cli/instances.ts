@@ -69,13 +69,13 @@ function listInstances(raw: RawConfig | null, env: Record<string, string | undef
     }
     return 0;
   }
-  const instances = (raw.instances ?? {}) as Record<string, Record<string, unknown>>;
+  const instances = instancesOf(raw);
   const def = typeof raw.defaultInstance === "string" ? raw.defaultInstance : undefined;
   const names = Object.keys(instances);
   if (names.length === 0) { out("Config file has no instances."); return 0; }
   out("instances (* = default):");
   for (const name of names) {
-    const i = instances[name] ?? {};
+    const i = instances[name] as Record<string, unknown>;
     const mark = name === def ? "*" : " ";
     out(`  ${mark} ${name}  ${String(i.baseUrl ?? "")}  host-ops:${flag(i.enableHostOps)}  destructive:${flag(i.allowDestructive)}`);
   }

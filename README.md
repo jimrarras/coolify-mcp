@@ -249,7 +249,7 @@ existing one; your other instances are left untouched).
 ```bash
 coolify-mcp instances                 # list configured instances (* = default); never prints secrets
 coolify-mcp instances default <name>  # set the default instance
-coolify-mcp instances rm <name>       # remove an instance
+coolify-mcp instances rm <name>       # remove an instance (alias: `remove`)
 ```
 
 `instances rm` refuses to remove the only instance, and refuses to remove the current default while
