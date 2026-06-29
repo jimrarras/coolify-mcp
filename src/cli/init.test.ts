@@ -158,3 +158,61 @@ describe("runInit (real-deps wiring)", () => {
     expect(runInit.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("runInitFlow merge", () => {
+  it("adds a second instance, preserves the first verbatim, keeps default when declined", async () => {
+    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://prod", token: "${PROD}" } } };
+    const written: unknown[] = [];
+    // answers: baseUrl, token, instanceName="staging", host-ops? n, make-default? n
+    const { deps: d } = deps(["https://stg", "2|s", "staging", "n", "n"], {
+      readConfig: () => existing,
+      writeConfig: (o) => { written.push(o); return "/cfg"; },
+    });
+    const code = await runInitFlow(d);
+    expect(code).toBe(0);
+    const out = written[0] as { defaultInstance: string; instances: Record<string, { token?: string }> };
+    expect(out.defaultInstance).toBe("prod");                  // unchanged
+    expect(out.instances.prod.token).toBe("${PROD}");          // preserved verbatim
+    expect(Object.keys(out.instances).sort()).toEqual(["prod", "staging"]);
+  });
+
+  it("switches the default when the user accepts the make-default prompt", async () => {
+    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://prod", token: "${PROD}" } } };
+    const written: unknown[] = [];
+    // answers: baseUrl, token, instanceName="staging", host-ops? n, make-default? y
+    const { deps: d } = deps(["https://stg", "2|s", "staging", "n", "y"], {
+      readConfig: () => existing,
+      writeConfig: (o) => { written.push(o); return "/cfg"; },
+    });
+    await runInitFlow(d);
+    expect((written[0] as { defaultInstance: string }).defaultInstance).toBe("staging");
+  });
+
+  it("re-prompts for a name when the chosen name exists and reconfigure is declined", async () => {
+    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://prod", token: "${PROD}" } } };
+    const written: unknown[] = [];
+    // answers: baseUrl, token, name="prod", reconfigure? n, name="prod2", host-ops? n, make-default? n
+    const { deps: d } = deps(["https://x", "9|s", "prod", "n", "prod2", "n", "n"], {
+      readConfig: () => existing,
+      writeConfig: (o) => { written.push(o); return "/cfg"; },
+    });
+    const code = await runInitFlow(d);
+    expect(code).toBe(0);
+    expect(Object.keys((written[0] as { instances: Record<string, unknown> }).instances).sort()).toEqual(["prod", "prod2"]);
+  });
+
+  it("overwrites only the named instance when reconfigure is confirmed", async () => {
+    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://old", token: "${PROD}" }, stg: { baseUrl: "https://stg", token: "${STG}" } } };
+    const written: unknown[] = [];
+    // answers: baseUrl, token, name="prod", reconfigure? y, host-ops? n
+    const { deps: d } = deps(["https://new", "1|new", "prod", "y", "n"], {
+      readConfig: () => existing,
+      writeConfig: (o) => { written.push(o); return "/cfg"; },
+    });
+    await runInitFlow(d);
+    const out = written[0] as { instances: Record<string, { baseUrl: string; token: string }> };
+    expect(out.instances.prod.baseUrl).toBe("https://new");
+    expect(out.instances.prod.token).toBe("1|new");   // inline by default
+    expect(out.instances.stg.token).toBe("${STG}");   // untouched
+  });
+});
