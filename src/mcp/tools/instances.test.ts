@@ -31,6 +31,6 @@ describe("list_instances", () => {
 
   it("degrades to an empty list if ctx has no summaries", async () => {
     const res = await tool.handler({}, ctx({}));
-    expect(res).toMatchObject({ status: "ok", instances: [] });
+    expect(res).toMatchObject({ status: "ok", default: undefined, instances: [] });
   });
 });

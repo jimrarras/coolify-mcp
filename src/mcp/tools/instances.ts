@@ -14,7 +14,7 @@ export const TOOLS: ToolDef[] = [
     inputSchema: {
       type: "object",
       properties: {
-        instance: { type: "string", description: "Ignored — the instance list is global. Present for argument-shape consistency." },
+        instance: { type: "string", description: "Not used for routing here — the instance list is server-global. Pass an instance name to any OTHER tool to target a specific Coolify instance." },
       },
       required: [],
     },
