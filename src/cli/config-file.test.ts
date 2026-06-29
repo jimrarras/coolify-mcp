@@ -24,6 +24,11 @@ describe("readRawConfig", () => {
     writeFileSync(p, "{ not json");
     expect(() => readRawConfig(p)).toThrow(/failed to read\/parse/);
   });
+  it("throws CoolifyError when the root is an array", () => {
+    const p = join(dir, "arr.json");
+    writeFileSync(p, "[]");
+    expect(() => readRawConfig(p)).toThrow(/must contain a JSON object/);
+  });
 });
 
 describe("writeRawConfig", () => {
@@ -45,5 +50,10 @@ describe("writeRawConfig", () => {
     const p = join(dir, "config.json");
     writeRawConfig(p, { instances: {} });
     expect(statSync(p).mode & 0o777).toBe(0o600);
+  });
+  it("writes indented (pretty) JSON", () => {
+    const p = join(dir, "pretty.json");
+    writeRawConfig(p, { instances: { a: {} } });
+    expect(readFileSync(p, "utf8")).toContain("\n  ");
   });
 });
