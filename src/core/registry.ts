@@ -14,6 +14,14 @@ export interface ResolvedInstance {
   hostOps: () => Promise<HostOps>;
 }
 
+export interface InstanceSummary {
+  name: string;
+  baseUrl: string;
+  isDefault: boolean;
+  enableHostOps: boolean;
+  allowDestructive: boolean;
+}
+
 export class InstanceRegistry {
   private readonly cfg: AppConfig;
   private readonly cache = new Map<string, ResolvedInstance>();
@@ -36,6 +44,17 @@ export class InstanceRegistry {
     const resolved: ResolvedInstance = { name: key, config, api, resolver, hostOps };
     this.cache.set(key, resolved);
     return resolved;
+  }
+
+  /** Secret-free summary of every configured instance (for list_instances). */
+  summaries(): InstanceSummary[] {
+    return Object.values(this.cfg.instances).map((c) => ({
+      name: c.name,
+      baseUrl: c.baseUrl,
+      isDefault: c.name === this.cfg.defaultInstance,
+      enableHostOps: c.enableHostOps,
+      allowDestructive: c.allowDestructive,
+    }));
   }
 }
 
