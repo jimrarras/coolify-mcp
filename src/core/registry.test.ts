@@ -52,5 +52,11 @@ describe("InstanceRegistry.summaries", () => {
     ]);
     expect(JSON.stringify(s)).not.toContain("secret");
     expect(JSON.stringify(s)).not.toContain("pp");
+    for (const summary of s) {
+      expect(summary).not.toHaveProperty("token");
+      expect(summary).not.toHaveProperty("ssh");
+      expect(summary).not.toHaveProperty("db");
+      expect(summary).not.toHaveProperty("extraHeaders");
+    }
   });
 });
