@@ -82,3 +82,65 @@ export function bodyWithout(args: Record<string, unknown>, ...keys: string[]): R
   }
   return out;
 }
+
+/**
+ * Builds a request body for tools with a declared pass-through channel. Strict MCP
+ * clients rewrite open inputSchemas to additionalProperties:false and silently strip
+ * undeclared TOP-LEVEL args, so body fields must travel inside a declared property:
+ * `fields` (an object, kept by strict clients because it is declared) or `fields_json`
+ * (a JSON-encoded string, immune even to clients that recursively empty nested open
+ * objects). The two are mutually exclusive. Top-level extras (minus confirm/dry_run
+ * and the named discriminators) still work on permissive clients; the pass-through
+ * wins on a key conflict. Returns an invalid_input ToolResult when the pass-through
+ * is malformed — discriminate with `"body" in r`.
+ */
+export function buildFieldsBody(
+  args: Record<string, unknown>,
+  ...keys: string[]
+): { body: Record<string, unknown> } | ToolResult {
+  const { fields, fields_json } = args;
+  if (fields !== undefined && fields_json !== undefined) {
+    return err("invalid_input", "`fields` and `fields_json` are mutually exclusive — provide exactly one.");
+  }
+  let passthrough: Record<string, unknown> | undefined;
+  if (fields !== undefined) {
+    if (typeof fields !== "object" || fields === null || Array.isArray(fields)) {
+      return err("invalid_input", "`fields` must be an object mapping field names to new values.");
+    }
+    passthrough = fields as Record<string, unknown>;
+  } else if (fields_json !== undefined) {
+    if (typeof fields_json !== "string") {
+      return err("invalid_input", "`fields_json` must be a JSON-encoded object string.");
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(fields_json);
+    } catch {
+      return err("invalid_input", "`fields_json` is not valid JSON.");
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return err("invalid_input", '`fields_json` must encode a JSON object, e.g. \'{"name":"new-name"}\'.');
+    }
+    passthrough = parsed as Record<string, unknown>;
+  }
+  return { body: { ...bodyWithout(args, "fields", "fields_json", ...keys), ...passthrough } };
+}
+
+/**
+ * The schema properties for the `fields`/`fields_json` pass-through channel.
+ * `what` describes the payload for the property descriptions (e.g. "storage fields").
+ */
+export function fieldsPassthroughProps(what: string): Record<string, unknown> {
+  return {
+    fields: {
+      type: "object",
+      description: `${what}, sent verbatim as the request body — any field the Coolify endpoint accepts is allowed.`,
+      additionalProperties: true,
+    },
+    fields_json: {
+      type: "string",
+      description:
+        `JSON-encoded alternative to \`fields\` (mutually exclusive) for clients whose strict schema handling strips free-form object contents.`,
+    },
+  };
+}

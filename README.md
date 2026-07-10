@@ -336,12 +336,73 @@ Destructive host actions (docker rm/rmi/stop/kill/prune/exec) additionally requi
 | `list_resources` | R | List all resources of a given kind with summary fields. |
 | `get_resource` | R | Fetch full details for a single resource by UUID. |
 | `create_resource` | W | Create an application (public/private-github-app/private-deploy-key/dockerfile/dockerimage), database, or service. |
-| `update_resource` | W | Update an existing resource's settings. |
+| `update_resource` | D | Update an existing resource's settings via the `fields` object (see below). Fenced: requires `--allow-destructive` + `confirm: true` (fields can rewrite deploy/start commands). |
 | `control_resource` | W/D | Start/stop/restart a resource (stop/restart require `--allow-destructive`). |
 | `delete_resource` | D | Permanently delete a resource. Requires `--allow-destructive` + `confirm: true`. |
-| `manage_storage` | W/D | List, create, update, or delete persistent storage volumes for a resource. |
-| `manage_backups` | W/D | List, create, update, or delete backup schedules for databases. |
+| `manage_storage` | W/D | List, create, update, or delete persistent storage volumes for a resource. Create/update take a `fields` object. |
+| `manage_backups` | W/D | List, create, update, or delete backup schedules for databases. Create/update take a `fields` object. |
 | `manage_scheduled_tasks` | W/D | List, create, update, or delete scheduled tasks for apps/services. |
+
+#### The `fields` pass-through (`update_resource`, `create_resource`, `manage_storage`, `manage_backups`)
+
+Pass request-body fields in the `fields` object; they are forwarded verbatim to the
+corresponding Coolify endpoint (e.g. `PATCH /api/v1/applications/{uuid}`), so any
+field the endpoint accepts works:
+
+```json
+{
+  "type": "applications",
+  "uuid": "abc123",
+  "fields": { "post_deployment_command": "php artisan migrate --force" },
+  "confirm": true
+}
+```
+
+The declared `fields` parameter exists because some MCP clients enforce strict input
+schemas and silently strip undeclared top-level properties, which previously reached
+Coolify as an empty PATCH body (HTTP 400 "Empty JSON"). Top-level extra properties
+are still accepted from permissive clients; on a key conflict, `fields` wins. If no
+updatable field is provided at all, the tool returns `invalid_input` instead of
+calling the API. For clients whose strict schema handling also empties nested
+free-form objects, every `fields`-taking tool additionally accepts `fields_json` —
+the same object JSON-encoded as a string (mutually exclusive with `fields`).
+
+`update_resource` is fenced: it requires `--allow-destructive` at startup and
+`confirm: true` per call (`dry_run: true` previews which fields would change),
+because `fields` can rewrite the commands Coolify executes on deploy.
+
+Commonly updated **application** fields: `name`, `description`, `domains`
+(comma-separated URL list — do **not** send `fqdn`, which Coolify rejects; the tool
+remaps `fqdn` to `domains` defensively), `git_branch`, `build_pack`,
+`install_command`, `build_command`, `start_command`, `ports_exposes`,
+`base_directory`, `publish_directory`, `docker_registry_image_name`,
+`docker_registry_image_tag`, `pre_deployment_command`, `post_deployment_command`,
+`health_check_enabled`, `health_check_path` (and the other `health_check_*` settings),
+`custom_docker_run_options`, `watch_paths`. Applications with `build_pack:
+"dockercompose"` cannot use `domains` — set per-service domains via
+`docker_compose_domains`, e.g. `{ "fields": { "docker_compose_domains": [{ "name":
+"web", "domain": "https://app.example.com" }] } }`.
+
+**Databases** accept their own PATCH fields (e.g. `name`, `description`, `image`,
+`is_public`, `public_port`, engine credential fields). Credential values echoed back
+in the update response are redacted before being returned. **Services** accept only
+`name`, `description`, `instant_deploy`, `docker_compose_raw`,
+`connect_to_docker_network`, `urls`, `force_domain_override`, and
+`is_container_label_escape_enabled`; service URLs are set via `urls: [{ "name":
+"<compose-service-name>", "url": "https://..." }]` — services have no `domains` field.
+
+All three resource types also accept `instant_deploy: true` in `fields`, which queues
+a deployment immediately after the update is saved — omit it (the default) to change
+configuration without deploying.
+
+For **`create_resource`**, git-based applications (public, private-github-app,
+private-deploy-key) require `build_pack` (now a declared parameter); any less common
+create-body field can go in `fields`. **`manage_storage`** create requires
+`fields.type` and `fields.mount_path` (plus `name`, `host_path`, `content`,
+`is_directory`, `fs_path` as needed). **`manage_backups`** create requires
+`fields.frequency` (cron), and accepts `enabled`, `save_s3`, `s3_storage_uuid`,
+`databases_to_backup`, `dump_all`, `backup_now`, `database_backup_retention_*`,
+`timeout`.
 
 ### Environment Variables
 

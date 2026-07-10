@@ -40801,6 +40801,47 @@ function bodyWithout(args, ...keys) {
   }
   return out;
 }
+function buildFieldsBody(args, ...keys) {
+  const { fields, fields_json } = args;
+  if (fields !== void 0 && fields_json !== void 0) {
+    return err("invalid_input", "`fields` and `fields_json` are mutually exclusive \u2014 provide exactly one.");
+  }
+  let passthrough;
+  if (fields !== void 0) {
+    if (typeof fields !== "object" || fields === null || Array.isArray(fields)) {
+      return err("invalid_input", "`fields` must be an object mapping field names to new values.");
+    }
+    passthrough = fields;
+  } else if (fields_json !== void 0) {
+    if (typeof fields_json !== "string") {
+      return err("invalid_input", "`fields_json` must be a JSON-encoded object string.");
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(fields_json);
+    } catch {
+      return err("invalid_input", "`fields_json` is not valid JSON.");
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return err("invalid_input", '`fields_json` must encode a JSON object, e.g. \'{"name":"new-name"}\'.');
+    }
+    passthrough = parsed;
+  }
+  return { body: { ...bodyWithout(args, "fields", "fields_json", ...keys), ...passthrough } };
+}
+function fieldsPassthroughProps(what) {
+  return {
+    fields: {
+      type: "object",
+      description: `${what}, sent verbatim as the request body \u2014 any field the Coolify endpoint accepts is allowed.`,
+      additionalProperties: true
+    },
+    fields_json: {
+      type: "string",
+      description: `JSON-encoded alternative to \`fields\` (mutually exclusive) for clients whose strict schema handling strips free-form object contents.`
+    }
+  };
+}
 var RESOURCE_TYPES;
 var init_resource_clients = __esm({
   "src/mcp/tools/resource-clients.ts"() {
@@ -40819,6 +40860,7 @@ var init_resources = __esm({
     init_errors();
     init_projection();
     init_fencing();
+    init_redact();
     init_resource_clients();
     RESOURCE_LIST_FIELDS = [
       .../* @__PURE__ */ new Set([...APP_SUMMARY_FIELDS, ...DB_SUMMARY_FIELDS, ...SERVICE_SUMMARY_FIELDS, "type"])
@@ -40878,7 +40920,9 @@ var init_resources = __esm({
               "`source` is required for application: public | private-github-app | private-deploy-key | dockerfile | dockerimage"
             );
           }
-          const body = bodyWithout(args, "kind", "source");
+          const built = buildFieldsBody(args, "kind", "source");
+          if ("status" in built) return built;
+          const body = built.body;
           if (source === "public") {
             const r = await ctx.api.applications.createPublic(body);
             return ok({ uuid: r.uuid });
@@ -40912,8 +40956,9 @@ var init_resources = __esm({
               `\`engine\` is required for database and must be one of: ${DB_ENGINES.join(", ")}`
             );
           }
-          const body = bodyWithout(args, "kind", "engine");
-          const r = await ctx.api.databases.create(engine, body);
+          const built = buildFieldsBody(args, "kind", "engine");
+          if ("status" in built) return built;
+          const r = await ctx.api.databases.create(engine, built.body);
           return ok({ uuid: r.uuid });
         }
         if (kind === "service") {
@@ -40931,7 +40976,9 @@ var init_resources = __esm({
               "Either `service_type` or `docker_compose_raw` (base64-encoded) is required for service."
             );
           }
-          const body = bodyWithout(args, "kind", "service_type", "docker_compose_raw");
+          const built = buildFieldsBody(args, "kind", "service_type", "docker_compose_raw");
+          if ("status" in built) return built;
+          const body = built.body;
           if (serviceType) {
             body.type = serviceType;
           } else {
@@ -40950,10 +40997,28 @@ var init_resources = __esm({
       try {
         const resolved = resolveTypedResource(ctx.api, args);
         if ("status" in resolved) return resolved;
-        const { sub, uuid: uuid2 } = resolved;
-        const body = bodyWithout(args, "type", "uuid");
+        const { type, sub, uuid: uuid2 } = resolved;
+        const built = buildFieldsBody(args, "type", "uuid");
+        if ("status" in built) return built;
+        const { body } = built;
+        if (Object.keys(body).length === 0) {
+          return err(
+            "invalid_input",
+            'No updatable fields provided. Pass them in `fields`, e.g. { "fields": { "post_deployment_command": "..." } }.'
+          );
+        }
+        if (type === "applications" && body.fqdn !== void 0 && body.domains === void 0) {
+          body.domains = body.fqdn;
+          delete body.fqdn;
+        }
+        const fenced = await checkFences(ctx.config, {
+          destructive: true,
+          args: destructiveArgs(args),
+          preview: async () => ({ action: "update_resource", type, uuid: uuid2, fields: Object.keys(body) })
+        });
+        if (fenced !== null) return fenced;
         const resource = await sub.update(uuid2, body);
-        return ok({ resource });
+        return ok({ resource: redact(resource) });
       } catch (e) {
         return toErrorResult(e);
       }
@@ -41090,9 +41155,15 @@ var init_resources = __esm({
             git_branch: { type: "string", description: "Git branch (for git-based apps)." },
             github_app_uuid: { type: "string", description: "GitHub App UUID (for private-github-app source)." },
             private_key_uuid: { type: "string", description: "Private key UUID (for private-deploy-key source)." },
+            build_pack: {
+              type: "string",
+              enum: ["nixpacks", "railpack", "static", "dockerfile", "dockercompose"],
+              description: "Build pack. REQUIRED by Coolify for the public, private-github-app, and private-deploy-key sources."
+            },
             dockerfile: { type: "string", description: "Dockerfile content (for dockerfile source)." },
             docker_image: { type: "string", description: "Docker image reference (for dockerimage source)." },
             instant_deploy: { type: "boolean", description: "Trigger deploy immediately after creation." },
+            ...fieldsPassthroughProps("Additional create-body fields (e.g. ports_exposes, domains, base_directory, destination_uuid)"),
             confirm: {
               type: "boolean",
               description: "Must be true to confirm resource creation (destructive: code/credential write)."
@@ -41102,20 +41173,30 @@ var init_resources = __esm({
               description: "If true, show what would be created without performing the action."
             },
             instance: { type: "string", description: "Coolify instance name (omit for the default)." }
-          }
+          },
+          additionalProperties: true
         },
         handler: createResourceHandler,
         tier: "api"
       },
       {
         name: "update_resource",
-        description: "Update configuration fields of an existing Coolify resource.",
+        description: "Update configuration fields of an existing Coolify resource. FENCED: requires --allow-destructive and confirm:true (fields can rewrite deploy/start commands \u2014 a code-execution write). Pass the fields to change in `fields` (or `fields_json`); they are sent verbatim as the PATCH body. Applications commonly accept: name, description, domains (comma-separated URL list \u2014 NOT `fqdn`; dockercompose apps must use docker_compose_domains [{name, domain}] instead of domains), git_branch, build_pack, install_command, build_command, start_command, ports_exposes, base_directory, publish_directory, docker_registry_image_name, docker_registry_image_tag, pre_deployment_command, post_deployment_command, health_check_* settings, custom_docker_run_options, watch_paths. `instant_deploy: true` additionally queues an immediate redeploy after saving. Services accept only: name, description, instant_deploy, docker_compose_raw, connect_to_docker_network, urls [{name, url}], force_domain_override, is_container_label_escape_enabled.",
         inputSchema: {
           type: "object",
           required: ["type", "uuid"],
           properties: {
             type: { type: "string", enum: ["applications", "databases", "services"] },
             uuid: { type: "string", description: "The Coolify UUID of the resource." },
+            ...fieldsPassthroughProps("Resource fields to update"),
+            confirm: {
+              type: "boolean",
+              description: "Must be true to confirm the update (destructive: code-execution write)."
+            },
+            dry_run: {
+              type: "boolean",
+              description: "If true, preview which fields would be updated without performing the action."
+            },
             instance: { type: "string", description: "Coolify instance name (omit for the default)." }
           },
           additionalProperties: true
@@ -41195,13 +41276,28 @@ var init_storage = __esm({
           return ok({ storages });
         }
         if (action === "create") {
-          const result2 = await sub.createStorage(uuid2, bodyWithout(args, "type", "uuid", "action"));
+          const built = buildFieldsBody(args, "type", "uuid", "action");
+          if ("status" in built) return built;
+          if (Object.keys(built.body).length === 0) {
+            return err(
+              "invalid_input",
+              'No storage fields provided. Pass them in `fields`, e.g. { "fields": { "type": "volume", "name": "data", "mount_path": "/data" } }.'
+            );
+          }
+          const result2 = await sub.createStorage(uuid2, built.body);
           return ok({ result: result2 });
         }
         if (action === "update") {
           const storageUuid2 = assertCoolifyUuid(args.storage_uuid, "storage_uuid");
-          const body = bodyWithout(args, "type", "uuid", "action", "storage_uuid");
-          const result2 = await sub.updateStorage(uuid2, storageUuid2, body);
+          const built = buildFieldsBody(args, "type", "uuid", "action", "storage_uuid");
+          if ("status" in built) return built;
+          if (Object.keys(built.body).length === 0) {
+            return err(
+              "invalid_input",
+              'No storage fields provided. Pass them in `fields`, e.g. { "fields": { "mount_path": "/data" } }.'
+            );
+          }
+          const result2 = await sub.updateStorage(uuid2, storageUuid2, built.body);
           return ok({ result: result2 });
         }
         const storageUuid = assertCoolifyUuid(args.storage_uuid, "storage_uuid");
@@ -41220,7 +41316,7 @@ var init_storage = __esm({
     TOOLS3 = [
       {
         name: "manage_storage",
-        description: "List, create, update, or delete persistent volume storage for an application, database, or service.",
+        description: "List, create, update, or delete persistent volume storage for an application, database, or service. For create/update, pass the storage fields in `fields` (create requires `type` and `mount_path`; also name, host_path, content, is_directory, fs_path).",
         inputSchema: {
           type: "object",
           required: ["type", "uuid", "action"],
@@ -41229,6 +41325,7 @@ var init_storage = __esm({
             uuid: { type: "string" },
             action: { type: "string", enum: ["list", "create", "update", "delete"] },
             storage_uuid: { type: "string", description: "Required for update and delete." },
+            ...fieldsPassthroughProps("Storage fields for create/update (create requires type and mount_path; also name, host_path, content, is_directory, fs_path)"),
             confirm: { type: "boolean", description: "Required for delete." },
             dry_run: { type: "boolean" },
             instance: { type: "string", description: "Coolify instance name (omit for the default)." }
@@ -41264,13 +41361,28 @@ var init_backups = __esm({
           return ok({ backups });
         }
         if (action === "create") {
-          const result2 = await db.createBackup(uuid2, bodyWithout(args, "uuid", "action"));
+          const built = buildFieldsBody(args, "uuid", "action", "backup_uuid");
+          if ("status" in built) return built;
+          if (Object.keys(built.body).length === 0) {
+            return err(
+              "invalid_input",
+              'No backup fields provided. Pass them in `fields` \u2014 `frequency` (cron) is required, e.g. { "fields": { "frequency": "0 3 * * *" } }.'
+            );
+          }
+          const result2 = await db.createBackup(uuid2, built.body);
           return ok({ result: result2 });
         }
         if (action === "update") {
           const backupUuid2 = assertCoolifyUuid(args.backup_uuid, "backup_uuid");
-          const body = bodyWithout(args, "uuid", "action", "backup_uuid");
-          const result2 = await db.updateBackup(uuid2, backupUuid2, body);
+          const built = buildFieldsBody(args, "uuid", "action", "backup_uuid");
+          if ("status" in built) return built;
+          if (Object.keys(built.body).length === 0) {
+            return err(
+              "invalid_input",
+              'No backup fields provided. Pass them in `fields`, e.g. { "fields": { "enabled": false } }.'
+            );
+          }
+          const result2 = await db.updateBackup(uuid2, backupUuid2, built.body);
           return ok({ result: result2 });
         }
         if (action === "delete") {
@@ -41306,7 +41418,7 @@ var init_backups = __esm({
     TOOLS4 = [
       {
         name: "manage_backups",
-        description: "List, create, update, or delete database backup schedules and executions. Only applicable to databases.",
+        description: "List, create, update, or delete database backup schedules and executions. Only applicable to databases. For create/update, pass the schedule fields in `fields` (create requires `frequency`, a cron expression; also enabled, save_s3, s3_storage_uuid, databases_to_backup, dump_all, backup_now, database_backup_retention_*, timeout).",
         inputSchema: {
           type: "object",
           required: ["uuid", "action"],
@@ -41315,6 +41427,7 @@ var init_backups = __esm({
             action: { type: "string", enum: ["list", "create", "update", "delete", "executions", "delete_execution"] },
             backup_uuid: { type: "string", description: "Required for update, delete, executions, delete_execution." },
             execution_uuid: { type: "string", description: "Required for delete_execution." },
+            ...fieldsPassthroughProps("Backup schedule fields for create/update (create requires frequency; also enabled, save_s3, s3_storage_uuid, databases_to_backup, dump_all, backup_now, database_backup_retention_*, timeout)"),
             confirm: { type: "boolean", description: "Required for delete and delete_execution." },
             dry_run: { type: "boolean" },
             instance: { type: "string", description: "Coolify instance name (omit for the default)." }
@@ -41406,6 +41519,9 @@ var init_scheduled_tasks = __esm({
             name: { type: "string" },
             command: { type: "string" },
             frequency: { type: "string", description: "Cron expression." },
+            container: { type: "string", description: "Container (within a compose app/service) the command runs in." },
+            timeout: { type: "integer", description: "Task timeout in seconds (Coolify default 300)." },
+            enabled: { type: "boolean", description: "Whether the task is enabled (Coolify default true)." },
             confirm: { type: "boolean", description: "Required for create, update, and delete." },
             dry_run: { type: "boolean", description: "If true, show preview without performing the action (create, update, delete)." },
             instance: { type: "string", description: "Coolify instance name (omit for the default)." }
@@ -42666,7 +42782,7 @@ function isLocalhost(host) {
 }
 function buildServer(registry2, tools) {
   const multi = registry2.names().length > 1;
-  const server = new Server({ name: "coolify-mcp", version: "0.2.0" }, { capabilities: { tools: {} } });
+  const server = new Server({ name: "coolify-mcp", version: "0.3.0" }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((t) => ({
       name: t.name,

@@ -1,4 +1,4 @@
-import { ok, err, toErrorResult } from "../../core/errors.js";
+﻿import { ok, err, toErrorResult } from "../../core/errors.js";
 import {
   projectList,
   APP_SUMMARY_FIELDS,
@@ -6,7 +6,8 @@ import {
   SERVICE_SUMMARY_FIELDS,
 } from "../../core/projection.js";
 import { checkFences, destructiveArgs } from "../../core/fencing.js";
-import { resolveTypedResource, bodyWithout } from "./resource-clients.js";
+import { redact } from "../../core/redact.js";
+import { resolveTypedResource, buildFieldsBody, fieldsPassthroughProps } from "./resource-clients.js";
 import type { ToolDef, ToolHandler } from "./types.js";
 import type { DbEngine } from "../../core/api/databases.js";
 import type { ControlResult } from "../../core/api/applications.js";
@@ -75,7 +76,11 @@ const createResourceHandler: ToolHandler = async (args, ctx) => {
 
       // Strip the discriminators AND the fencing-only fields — Coolify's create
       // endpoints reject unknown fields with HTTP 422 ("This field is not allowed.").
-      const body = bodyWithout(args, "kind", "source");
+      // buildFieldsBody also merges the declared fields/fields_json pass-through,
+      // which survives strict clients that strip undeclared top-level args.
+      const built = buildFieldsBody(args, "kind", "source");
+      if ("status" in built) return built;
+      const body = built.body;
 
       if (source === "public") {
         const r = await ctx.api.applications.createPublic(body);
@@ -111,8 +116,9 @@ const createResourceHandler: ToolHandler = async (args, ctx) => {
           `\`engine\` is required for database and must be one of: ${DB_ENGINES.join(", ")}`,
         );
       }
-      const body = bodyWithout(args, "kind", "engine");
-      const r = await ctx.api.databases.create(engine as DbEngine, body);
+      const built = buildFieldsBody(args, "kind", "engine");
+      if ("status" in built) return built;
+      const r = await ctx.api.databases.create(engine as DbEngine, built.body);
       return ok({ uuid: r.uuid });
     }
 
@@ -133,7 +139,9 @@ const createResourceHandler: ToolHandler = async (args, ctx) => {
         );
       }
 
-      const body = bodyWithout(args, "kind", "service_type", "docker_compose_raw");
+      const built = buildFieldsBody(args, "kind", "service_type", "docker_compose_raw");
+      if ("status" in built) return built;
+      const body = built.body;
       if (serviceType) {
         body.type = serviceType;
       } else {
@@ -157,10 +165,44 @@ const updateResourceHandler: ToolHandler = async (args, ctx) => {
   try {
     const resolved = resolveTypedResource(ctx.api, args);
     if ("status" in resolved) return resolved;
-    const { sub, uuid } = resolved;
-    const body = bodyWithout(args, "type", "uuid");
+    const { type, sub, uuid } = resolved;
+
+    // `fields`/`fields_json` are the declared pass-through channel: strict MCP
+    // clients rewrite open schemas to additionalProperties:false and silently
+    // strip undeclared top-level keys, which left an empty PATCH body (Coolify
+    // HTTP 400 "Empty JSON"). Top-level extras still work on permissive clients;
+    // on a key conflict the explicit pass-through value wins.
+    const built = buildFieldsBody(args, "type", "uuid");
+    if ("status" in built) return built;
+    const { body } = built;
+    if (Object.keys(body).length === 0) {
+      return err(
+        "invalid_input",
+        'No updatable fields provided. Pass them in `fields`, e.g. { "fields": { "post_deployment_command": "..." } }.',
+      );
+    }
+
+    // Coolify's application PATCH accepts `domains` only — `fqdn` is a read-only
+    // column derived from it and is rejected with 422 "This field is not allowed".
+    if (type === "applications" && body.fqdn !== undefined && body.domains === undefined) {
+      body.domains = body.fqdn;
+      delete body.fqdn;
+    }
+
+    // Fenced: the pass-through can rewrite the commands Coolify executes
+    // (start_command, pre-/post_deployment_command, custom_docker_run_options) —
+    // a code-execution write, the same risk class as manage_scheduled_tasks update.
+    const fenced = await checkFences(ctx.config, {
+      destructive: true,
+      args: destructiveArgs(args),
+      preview: async () => ({ action: "update_resource", type, uuid, fields: Object.keys(body) }),
+    });
+    if (fenced !== null) return fenced;
+
     const resource = await sub.update(uuid, body);
-    return ok({ resource });
+    // Database updates echo credentials (postgres_password, connection URLs) back
+    // in the response; mask them before they enter the client's context window.
+    return ok({ resource: redact(resource) });
   } catch (e) {
     return toErrorResult(e);
   }
@@ -312,9 +354,15 @@ export const TOOLS: ToolDef[] = [
         git_branch: { type: "string", description: "Git branch (for git-based apps)." },
         github_app_uuid: { type: "string", description: "GitHub App UUID (for private-github-app source)." },
         private_key_uuid: { type: "string", description: "Private key UUID (for private-deploy-key source)." },
+        build_pack: {
+          type: "string",
+          enum: ["nixpacks", "railpack", "static", "dockerfile", "dockercompose"],
+          description: "Build pack. REQUIRED by Coolify for the public, private-github-app, and private-deploy-key sources.",
+        },
         dockerfile: { type: "string", description: "Dockerfile content (for dockerfile source)." },
         docker_image: { type: "string", description: "Docker image reference (for dockerimage source)." },
         instant_deploy: { type: "boolean", description: "Trigger deploy immediately after creation." },
+        ...fieldsPassthroughProps("Additional create-body fields (e.g. ports_exposes, domains, base_directory, destination_uuid)"),
         confirm: {
           type: "boolean",
           description: "Must be true to confirm resource creation (destructive: code/credential write).",
@@ -325,19 +373,30 @@ export const TOOLS: ToolDef[] = [
         },
         instance: { type: "string", description: "Coolify instance name (omit for the default)." },
       },
+      additionalProperties: true,
     },
     handler: createResourceHandler,
     tier: "api",
   },
   {
     name: "update_resource",
-    description: "Update configuration fields of an existing Coolify resource.",
+    description:
+      "Update configuration fields of an existing Coolify resource. FENCED: requires --allow-destructive and confirm:true (fields can rewrite deploy/start commands — a code-execution write). Pass the fields to change in `fields` (or `fields_json`); they are sent verbatim as the PATCH body. Applications commonly accept: name, description, domains (comma-separated URL list — NOT `fqdn`; dockercompose apps must use docker_compose_domains [{name, domain}] instead of domains), git_branch, build_pack, install_command, build_command, start_command, ports_exposes, base_directory, publish_directory, docker_registry_image_name, docker_registry_image_tag, pre_deployment_command, post_deployment_command, health_check_* settings, custom_docker_run_options, watch_paths. `instant_deploy: true` additionally queues an immediate redeploy after saving. Services accept only: name, description, instant_deploy, docker_compose_raw, connect_to_docker_network, urls [{name, url}], force_domain_override, is_container_label_escape_enabled.",
     inputSchema: {
       type: "object",
       required: ["type", "uuid"],
       properties: {
         type: { type: "string", enum: ["applications", "databases", "services"] },
         uuid: { type: "string", description: "The Coolify UUID of the resource." },
+        ...fieldsPassthroughProps("Resource fields to update"),
+        confirm: {
+          type: "boolean",
+          description: "Must be true to confirm the update (destructive: code-execution write).",
+        },
+        dry_run: {
+          type: "boolean",
+          description: "If true, preview which fields would be updated without performing the action.",
+        },
         instance: { type: "string", description: "Coolify instance name (omit for the default)." },
       },
       additionalProperties: true,

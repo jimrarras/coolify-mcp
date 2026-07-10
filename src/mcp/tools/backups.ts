@@ -1,7 +1,7 @@
-import { ok, err, toErrorResult } from "../../core/errors.js";
+﻿import { ok, err, toErrorResult } from "../../core/errors.js";
 import { assertCoolifyUuid } from "../../core/validate.js";
 import { checkFences, destructiveArgs } from "../../core/fencing.js";
-import { bodyWithout } from "./resource-clients.js";
+import { buildFieldsBody, fieldsPassthroughProps } from "./resource-clients.js";
 import type { ToolDef, ToolHandler } from "./types.js";
 
 const manageBackupsHandler: ToolHandler = async (args, ctx) => {
@@ -21,14 +21,29 @@ const manageBackupsHandler: ToolHandler = async (args, ctx) => {
     }
 
     if (action === "create") {
-      const result = await db.createBackup(uuid, bodyWithout(args, "uuid", "action"));
+      const built = buildFieldsBody(args, "uuid", "action", "backup_uuid");
+      if ("status" in built) return built;
+      if (Object.keys(built.body).length === 0) {
+        return err(
+          "invalid_input",
+          'No backup fields provided. Pass them in `fields` — `frequency` (cron) is required, e.g. { "fields": { "frequency": "0 3 * * *" } }.',
+        );
+      }
+      const result = await db.createBackup(uuid, built.body);
       return ok({ result });
     }
 
     if (action === "update") {
       const backupUuid = assertCoolifyUuid(args.backup_uuid, "backup_uuid");
-      const body = bodyWithout(args, "uuid", "action", "backup_uuid");
-      const result = await db.updateBackup(uuid, backupUuid, body);
+      const built = buildFieldsBody(args, "uuid", "action", "backup_uuid");
+      if ("status" in built) return built;
+      if (Object.keys(built.body).length === 0) {
+        return err(
+          "invalid_input",
+          'No backup fields provided. Pass them in `fields`, e.g. { "fields": { "enabled": false } }.',
+        );
+      }
+      const result = await db.updateBackup(uuid, backupUuid, built.body);
       return ok({ result });
     }
 
@@ -69,7 +84,8 @@ const manageBackupsHandler: ToolHandler = async (args, ctx) => {
 export const TOOLS: ToolDef[] = [
   {
     name: "manage_backups",
-    description: "List, create, update, or delete database backup schedules and executions. Only applicable to databases.",
+    description:
+      "List, create, update, or delete database backup schedules and executions. Only applicable to databases. For create/update, pass the schedule fields in `fields` (create requires `frequency`, a cron expression; also enabled, save_s3, s3_storage_uuid, databases_to_backup, dump_all, backup_now, database_backup_retention_*, timeout).",
     inputSchema: {
       type: "object",
       required: ["uuid", "action"],
@@ -78,6 +94,7 @@ export const TOOLS: ToolDef[] = [
         action: { type: "string", enum: ["list", "create", "update", "delete", "executions", "delete_execution"] },
         backup_uuid: { type: "string", description: "Required for update, delete, executions, delete_execution." },
         execution_uuid: { type: "string", description: "Required for delete_execution." },
+        ...fieldsPassthroughProps("Backup schedule fields for create/update (create requires frequency; also enabled, save_s3, s3_storage_uuid, databases_to_backup, dump_all, backup_now, database_backup_retention_*, timeout)"),
         confirm: { type: "boolean", description: "Required for delete and delete_execution." },
         dry_run: { type: "boolean" },
         instance: { type: "string", description: "Coolify instance name (omit for the default)." },

