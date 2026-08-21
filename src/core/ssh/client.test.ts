@@ -45,6 +45,7 @@ const { mockSftpReadFile, mockSftpRealpath, mockSftpStat, mockSftpInstance, mock
   let sftpCallback: ((err: Error | undefined, sftp: typeof mockSftpInstance) => void) | null = null;
   let connectCallback: (() => void) | null = null;
   let errorCallback: ((err: Error) => void) | null = null;
+  let closeCallback: (() => void) | null = null;
   let lastConnectConfig: Record<string, unknown> | null = null;
 
   class MockClient {
@@ -52,18 +53,21 @@ const { mockSftpReadFile, mockSftpRealpath, mockSftpStat, mockSftpInstance, mock
     static getSftpCallback() { return sftpCallback; }
     static getConnectCallback() { return connectCallback; }
     static getErrorCallback() { return errorCallback; }
+    static getCloseCallback() { return closeCallback; }
     static getLastConnectConfig() { return lastConnectConfig; }
     static reset() {
       execCallback = null;
       sftpCallback = null;
       connectCallback = null;
       errorCallback = null;
+      closeCallback = null;
       lastConnectConfig = null;
     }
 
     on(evt: string, fn: (...args: unknown[]) => void) {
       if (evt === "ready") connectCallback = fn as () => void;
       if (evt === "error") errorCallback = fn as (err: Error) => void;
+      if (evt === "close") closeCallback = fn as () => void;
       return this;
     }
     connect(cfg: Record<string, unknown>) { lastConnectConfig = cfg; }
@@ -587,5 +591,62 @@ describe("SshClient", () => {
       await connectPromise;
       await expect(client.close()).resolves.toBeUndefined();
     });
+  });
+});
+
+// ---- dead-session detection + reconnect (regression: pooled SSH died mid-session
+// and every later ssh_exec/docker_op returned "Not connected" forever) ----------
+describe("SshClient liveness", () => {
+  beforeEach(() => {
+    MockClient.reset();
+    vi.mocked(readFileSync).mockReturnValue(MOCK_KEY_MATERIAL);
+  });
+
+  async function connectedClient(): Promise<SshClient> {
+    const c = new SshClient(baseCfg);
+    const p = c.connect();
+    MockClient.getConnectCallback()!();
+    await p;
+    return c;
+  }
+
+  it("isConnected is false before connect and true after ready", async () => {
+    const c = new SshClient(baseCfg);
+    expect(c.isConnected()).toBe(false);
+    const p = c.connect();
+    MockClient.getConnectCallback()!();
+    await p;
+    expect(c.isConnected()).toBe(true);
+  });
+
+  it("a post-ready 'close' marks the client disconnected", async () => {
+    const c = await connectedClient();
+    MockClient.getCloseCallback()!();
+    expect(c.isConnected()).toBe(false);
+    await expect(async () => c.exec("echo hi")).rejects.toThrow(/not connected/i);
+  });
+
+  it("a post-ready 'error' marks the client disconnected", async () => {
+    const c = await connectedClient();
+    MockClient.getErrorCallback()!(new Error("read ECONNRESET"));
+    expect(c.isConnected()).toBe(false);
+  });
+
+  it("can reconnect after the connection dropped", async () => {
+    const c = await connectedClient();
+    MockClient.getCloseCallback()!();
+    expect(c.isConnected()).toBe(false);
+    const p2 = c.connect();
+    MockClient.getConnectCallback()!();
+    await p2;
+    expect(c.isConnected()).toBe(true);
+  });
+
+  it("an exec failing with ssh2's 'Not connected' marks the client dead", async () => {
+    const c = await connectedClient();
+    const p = c.exec("echo hi");
+    MockClient.getExecCallback()!(new Error("Not connected"), new MockStream());
+    await expect(p).rejects.toThrow("Not connected");
+    expect(c.isConnected()).toBe(false); // next pooled call reconnects instead of failing forever
   });
 });

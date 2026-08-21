@@ -120,10 +120,20 @@ export class SshClient {
     return new Promise<void>((resolve, reject) => {
       const conn = new Client();
       conn.on("ready", () => {
+        // A dropped socket must not leave a dead conn behind: when THIS
+        // connection closes or errors after ready, mark the client
+        // disconnected so pooled callers reconnect instead of getting
+        // "Not connected" from ssh2 forever. Guard on identity — a later
+        // reconnect replaces this.conn, and the old conn's close event must
+        // not clobber the new connection.
+        conn.on("close", () => {
+          if (this.conn === conn) this.conn = null;
+        });
         this.conn = conn;
         resolve();
       });
       conn.on("error", (err: Error) => {
+        if (this.conn === conn) this.conn = null;
         reject(err);
       });
 
@@ -169,6 +179,7 @@ export class SshClient {
     return new Promise<SshExecResult>((resolve, reject) => {
       conn.exec(command, (err, stream) => {
         if (err) {
+          this._noteOpError(err);
           reject(err);
           return;
         }
@@ -239,6 +250,7 @@ export class SshClient {
     return new Promise<{ code: number | null }>((resolve, reject) => {
       conn.exec(command, (err, stream) => {
         if (err) {
+          this._noteOpError(err);
           reject(err);
           return;
         }
@@ -302,6 +314,7 @@ export class SshClient {
     return new Promise<string>((resolve, reject) => {
       conn.sftp((err, sftp) => {
         if (err) {
+          this._noteOpError(err);
           reject(err);
           return;
         }
@@ -381,10 +394,24 @@ export class SshClient {
     });
   }
 
+  /** True while the underlying ssh2 connection is up (post-ready, not yet closed/errored). */
+  isConnected(): boolean {
+    return this.conn !== null;
+  }
+
   private _requireConn(): InstanceType<typeof Client> {
     if (!this.conn) {
       throw new Error("SshClient: not connected. Call connect() first.");
     }
     return this.conn;
+  }
+
+  /**
+   * ssh2 reports operations on a silently-dead socket with "Not connected"
+   * without necessarily emitting close/error first. Treat that as proof the
+   * session is gone so the next pooled call reconnects.
+   */
+  private _noteOpError(err: Error): void {
+    if (/not connected/i.test(err.message)) this.conn = null;
   }
 }

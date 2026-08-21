@@ -62,9 +62,16 @@ export class InstanceRegistry {
 export function makeInstanceHostOps(config: InstanceConfig, api: CoolifyApiClient, resolver: ServerResolver): () => Promise<HostOps> {
   void api;
   let instance: HostOps | undefined;
+  let sshRef: SshClient | undefined;
   return async (): Promise<HostOps> => {
     if (!config.enableHostOps) {
       throw new CoolifyError("host_ops_disabled", `Host-ops is disabled for instance '${config.name}'. Set enableHostOps:true (and ssh.keyPath) to use this tool.`);
+    }
+    // The pooled SSH session can die mid-session (idle timeout, deployment
+    // churn, sshd restart). Reconnect it here instead of handing back a dead
+    // HostOps whose every call fails with "Not connected".
+    if (instance && sshRef && !sshRef.isConnected()) {
+      await sshRef.connect();
     }
     if (!instance) {
       if (!config.ssh) throw new CoolifyError("invalid_input", `Instance '${config.name}' has enableHostOps but no ssh.keyPath configured.`);
@@ -82,6 +89,7 @@ export function makeInstanceHostOps(config: InstanceConfig, api: CoolifyApiClien
       // here). HostOps' exec/stream/sftp calls all require an already-connected
       // client — without this the first host-op throws "SshClient: not connected".
       await ssh.connect();
+      sshRef = ssh;
       instance = new HostOps(ssh, resolver, config.db?.readonlyUser, config.db?.readonlyPassword);
     }
     return instance;
