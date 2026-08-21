@@ -10,6 +10,7 @@ interface DispatchDeps {
   runInit: (argv: string[], env: Record<string, string | undefined>) => Promise<number>;
   runInstances: (argv: string[], env: Record<string, string | undefined>, out: (l: string) => void) => Promise<number>;
   runServer: () => Promise<void>;
+  out: (l: string) => void;
 }
 
 /** Friendly, actionable setup guidance shown when nothing is configured yet. */
@@ -27,14 +28,37 @@ export function configGuidance(): string {
   ].join("\n");
 }
 
+const KNOWN_SUBCOMMANDS = new Set(["doctor", "init", "instances"]);
+
 export async function dispatch(argv: string[], deps?: Partial<DispatchDeps>): Promise<number> {
   const sub = argv[0];
   const rest = argv.slice(1);
   const env = process.env as Record<string, string | undefined>;
+  const { defaultPalette, paintLine } = await import("./ansi.js");
+  const palette = defaultPalette();
+  const out = deps?.out ?? ((l: string) => process.stdout.write(paintLine(l, palette) + "\n"));
+
+  // Help and version short-circuit everything (including the server), so
+  // `coolify-mcp --help` no longer silently starts an MCP server on stdio.
+  if (sub === "--help" || sub === "-h" || sub === "help") {
+    const { helpText } = await import("./help.js");
+    out(helpText(sub === "help" ? rest[0] : undefined));
+    return 0;
+  }
+  if (sub === "--version") {
+    const { getVersion } = await import("./help.js");
+    out(getVersion());
+    return 0;
+  }
+  if (KNOWN_SUBCOMMANDS.has(sub ?? "") && (rest.includes("--help") || rest.includes("-h"))) {
+    const { helpText } = await import("./help.js");
+    out(helpText(sub));
+    return 0;
+  }
 
   if (sub === "doctor") {
     const runDoctor = deps?.runDoctor ?? (await import("./doctor.js")).runDoctor;
-    return runDoctor(rest, env, (l) => process.stdout.write(l + "\n"));
+    return runDoctor(rest, env, out);
   }
   if (sub === "init") {
     const runInit = deps?.runInit ?? (await import("./init.js")).runInit;
@@ -42,7 +66,7 @@ export async function dispatch(argv: string[], deps?: Partial<DispatchDeps>): Pr
   }
   if (sub === "instances") {
     const runInstances = deps?.runInstances ?? (await import("./instances.js")).runInstances;
-    return runInstances(rest, env, (l) => process.stdout.write(l + "\n"));
+    return runInstances(rest, env, out);
   }
   // No subcommand (or a server flag like --enable-host-ops): run the MCP server.
   const runServer = deps?.runServer ?? (await import("../mcp/server.js")).main;

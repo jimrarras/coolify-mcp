@@ -24,8 +24,11 @@ const banner =
   "const __filename=__ffu(import.meta.url);" +
   "const __dirname=__dn(__filename);";
 
+const ownPkg = JSON.parse(readFileSync("package.json", "utf8"));
+
 const result = await build({
   entryPoints: ["src/cli/index.ts"],
+  define: { __PKG_VERSION__: JSON.stringify(ownPkg.version) },
   bundle: true,
   platform: "node",
   format: "esm",

@@ -155,3 +155,49 @@ describe("isMainModule", () => {
     expect(isMainModule(pathToFileURL(ghost).href, "C:/other/index.js")).toBe(false);
   });
 });
+
+describe("dispatch help/version routing", () => {
+  function capOut() {
+    const lines: string[] = [];
+    return { out: (l: string) => lines.push(l), text: () => lines.join("\n") };
+  }
+  it("--help prints top-level help and never starts the server", async () => {
+    const runServer = vi.fn(async () => {});
+    const c = capOut();
+    const code = await dispatch(["--help"], { runDoctor: vi.fn(), runInit: vi.fn(), runServer, out: c.out });
+    expect(code).toBe(0);
+    expect(runServer).not.toHaveBeenCalled();
+    expect(c.text()).toContain("instances");
+    expect(c.text()).toContain("--enable-host-ops");
+  });
+  it("-h and 'help' behave like --help", async () => {
+    const runServer = vi.fn(async () => {});
+    for (const a of [["-h"], ["help"]]) {
+      const c = capOut();
+      expect(await dispatch(a, { runDoctor: vi.fn(), runInit: vi.fn(), runServer, out: c.out })).toBe(0);
+      expect(c.text()).toContain("init");
+    }
+    expect(runServer).not.toHaveBeenCalled();
+  });
+  it("'help instances' and 'instances --help' print instances help without running the command", async () => {
+    const runInstances = vi.fn(async () => 0);
+    const c1 = capOut();
+    await dispatch(["help", "instances"], { runDoctor: vi.fn(), runInit: vi.fn(), runServer: vi.fn(), runInstances, out: c1.out });
+    expect(c1.text()).toContain("unset");
+    const c2 = capOut();
+    await dispatch(["instances", "--help"], { runDoctor: vi.fn(), runInit: vi.fn(), runServer: vi.fn(), runInstances, out: c2.out });
+    expect(c2.text()).toContain("unset");
+    expect(runInstances).not.toHaveBeenCalled();
+  });
+  it("--version prints the package version", async () => {
+    const c = capOut();
+    const code = await dispatch(["--version"], { runDoctor: vi.fn(), runInit: vi.fn(), runServer: vi.fn(), out: c.out });
+    expect(code).toBe(0);
+    expect(c.text()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+  it("unknown flags still start the MCP server (client compatibility)", async () => {
+    const runServer = vi.fn(async () => {});
+    await dispatch(["--enable-host-ops", "--allow-destructive"], { runDoctor: vi.fn(), runInit: vi.fn(), runServer });
+    expect(runServer).toHaveBeenCalledOnce();
+  });
+});

@@ -370,6 +370,172 @@ var init_config = __esm({
   }
 });
 
+// src/cli/ansi.ts
+var ansi_exports = {};
+__export(ansi_exports, {
+  colorEnabled: () => colorEnabled,
+  defaultPalette: () => defaultPalette,
+  makePalette: () => makePalette,
+  paintLine: () => paintLine
+});
+function makePalette(enabled) {
+  if (!enabled) return { green: id, red: id, yellow: id, bold: id, dim: id };
+  return {
+    green: wrap(32, 39),
+    red: wrap(31, 39),
+    yellow: wrap(33, 39),
+    bold: wrap(1, 22),
+    dim: wrap(2, 22)
+  };
+}
+function colorEnabled(env, isTTY) {
+  if ("NO_COLOR" in env) return false;
+  return isTTY;
+}
+function defaultPalette() {
+  return makePalette(colorEnabled(process.env, Boolean(process.stdout.isTTY)));
+}
+function paintLine(line, c) {
+  const m = line.match(/^(PASS|FAIL|WARN|SKIP|✓|✗|⚠|error:)(?=\s)/u);
+  if (!m) return line;
+  const token = m[1];
+  const rest = line.slice(token.length);
+  switch (token) {
+    case "PASS":
+    case "\u2713":
+      return c.green(token) + rest;
+    case "FAIL":
+    case "\u2717":
+    case "error:":
+      return c.red(token) + rest;
+    case "WARN":
+    case "\u26A0":
+      return c.yellow(token) + rest;
+    case "SKIP":
+      return c.dim(token) + rest;
+    default:
+      return line;
+  }
+}
+var ESC, wrap, id;
+var init_ansi = __esm({
+  "src/cli/ansi.ts"() {
+    "use strict";
+    ESC = String.fromCharCode(27);
+    wrap = (open, close) => (s) => `${ESC}[${open}m${s}${ESC}[${close}m`;
+    id = (s) => s;
+  }
+});
+
+// src/cli/help.ts
+var help_exports = {};
+__export(help_exports, {
+  getVersion: () => getVersion,
+  helpText: () => helpText
+});
+import { readFileSync as readFileSync2 } from "node:fs";
+import { join as join2, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+function getVersion() {
+  if (true) return "0.4.0";
+  const here = dirname(fileURLToPath(import.meta.url));
+  const pkg = JSON.parse(readFileSync2(join2(here, "..", "..", "package.json"), "utf8"));
+  return pkg.version;
+}
+function helpText(topic) {
+  switch (topic) {
+    case "instances":
+      return INSTANCES;
+    case "init":
+      return INIT;
+    case "doctor":
+      return DOCTOR;
+    default:
+      return TOP;
+  }
+}
+var TOP, INSTANCES, INIT, DOCTOR;
+var init_help = __esm({
+  "src/cli/help.ts"() {
+    "use strict";
+    TOP = `coolify-mcp \u2014 MCP server + CLI for managing Coolify instances
+
+Usage:
+  coolify-mcp [server flags]        start the MCP server (stdio) \u2014 what MCP clients run
+  coolify-mcp <command> [options]
+
+Commands:
+  init            guided setup wizard (creates or extends the config file)
+  doctor          check every configured instance (API, SSH, DB role)
+  instances       list and manage configured instances (see: coolify-mcp help instances)
+  help [command]  show help (also: --help, -h)
+
+Server flags (when starting the MCP server):
+  --enable-host-ops       allow SSH/Docker/live-log tools
+  --allow-destructive     allow destructive tools (delete/update; still per-call confirm)
+  --config <path>         explicit config file
+  --header K:V            extra HTTP header for the Coolify API (repeatable)
+
+Options:
+  --version               print the version
+  --help, -h              show this help
+
+Config precedence: --config > COOLIFY_CONFIG > ~/.coolify-mcp/config.json,
+falling back to COOLIFY_BASE_URL/COOLIFY_TOKEN environment variables.
+
+Examples:
+  coolify-mcp init
+  coolify-mcp doctor
+  coolify-mcp instances set prod allowDestructive on`;
+    INSTANCES = `coolify-mcp instances \u2014 list and manage configured instances
+
+Usage:
+  coolify-mcp instances [list]                     list instances (* = default)
+  coolify-mcp instances default <name>             make <name> the default instance
+  coolify-mcp instances rm <name>                  remove an instance
+  coolify-mcp instances edit <name>                interactive edit (Enter keeps current values)
+  coolify-mcp instances set <name> <field> [value] set one field
+  coolify-mcp instances unset <name> <field>       clear an optional field or block
+
+Settable fields:
+  baseUrl  token  enableHostOps  allowDestructive  pinnedCoolifyVersion
+  ssh.keyPath  ssh.host  ssh.hostServer  ssh.user  ssh.port  ssh.fingerprint
+  ssh.knownHostsPath  ssh.passphrase  db.readonlyUser  db.readonlyPassword
+
+Notes:
+  - Omit the value for secret fields (token, ssh.passphrase, db.readonlyPassword)
+    to be prompted with hidden input \u2014 keeps secrets out of shell history.
+  - unset accepts optional fields, or 'ssh' / 'db' to remove a whole block.
+  - After every change the instance is re-verified (API; SSH when ssh changed).
+    Skip with --no-verify.
+
+Examples:
+  coolify-mcp instances set prod allowDestructive on
+  coolify-mcp instances set prod token            (prompts hidden)
+  coolify-mcp instances unset prod ssh
+  coolify-mcp instances edit stg`;
+    INIT = `coolify-mcp init \u2014 guided setup wizard
+
+Usage:
+  coolify-mcp init [--env-secrets] [--config <path>]
+
+Creates ~/.coolify-mcp/config.json (or extends it with another instance).
+Walks through API credentials, optional host-ops (SSH), and an optional
+read-only DB role.
+
+Options:
+  --env-secrets    write \${ENV} references instead of inline secrets
+  --config <path>  explicit config file to create/extend`;
+    DOCTOR = `coolify-mcp doctor \u2014 verify every configured instance
+
+Usage:
+  coolify-mcp doctor [--config <path>]
+
+Checks each instance: API reachability and version, control-host resolution,
+SSH connectivity, and the read-only DB role (when configured).`;
+  }
+});
+
 // src/core/retry.ts
 function isTransientCoolifyError(e) {
   if (!(e instanceof CoolifyError)) return false;
@@ -848,11 +1014,11 @@ var init_teams = __esm({
       list() {
         return this.client.request("/teams");
       }
-      get(id) {
-        return this.client.request(`/teams/${encodeURIComponent(id)}`);
+      get(id2) {
+        return this.client.request(`/teams/${encodeURIComponent(id2)}`);
       }
-      members(id) {
-        return this.client.request(`/teams/${encodeURIComponent(id)}/members`);
+      members(id2) {
+        return this.client.request(`/teams/${encodeURIComponent(id2)}/members`);
       }
       current() {
         return this.client.request("/teams/current");
@@ -1069,10 +1235,10 @@ var init_resolver = __esm({
         this.hostServerHint = opts?.hostServer;
       }
       async resolveControlHost() {
-        let record2;
+        let record3;
         if (this.hostServerHint) {
           const t = await this.resolveByServer(this.hostServerHint);
-          record2 = await this.api.servers.get(t.serverUuid);
+          record3 = await this.api.servers.get(t.serverUuid);
         } else {
           if (!this.baseUrl) {
             throw new CoolifyError(
@@ -1082,25 +1248,25 @@ var init_resolver = __esm({
           }
           const wantHost = new URL(this.baseUrl).hostname.toLowerCase();
           const all = await this.api.servers.list();
-          record2 = all.find((s) => {
+          record3 = all.find((s) => {
             const ip = String(s["ip"] ?? "").toLowerCase();
             const name = String(s["name"] ?? "").toLowerCase();
             const fqdn = String(s["fqdn"] ?? s["domain"] ?? "").toLowerCase();
             return ip === wantHost || name === wantHost || fqdn === wantHost;
           });
-          if (!record2) {
+          if (!record3) {
             throw new CoolifyError(
               "invalid_input",
               `Could not identify the Coolify control host for ${this.baseUrl} among the API's servers. Set ssh.hostServer to the control server's uuid or name (or ssh.host to its reachable address).`
             );
           }
         }
-        const serverUuid = String(record2["uuid"] ?? "");
+        const serverUuid = String(record3["uuid"] ?? "");
         this.coolifyHostUuid = serverUuid;
         this.cache.delete(`server:${serverUuid}`);
-        const rawIp = String(record2["ip"] ?? "");
-        const user = String(record2["user"] ?? "root");
-        const port = typeof record2["port"] === "number" ? record2["port"] : 22;
+        const rawIp = String(record3["ip"] ?? "");
+        const user = String(record3["user"] ?? "root");
+        const port = typeof record3["port"] === "number" ? record3["port"] : 22;
         let host = rawIp;
         if (isNonRoutableHost(rawIp) && this.baseUrl) {
           host = new URL(this.baseUrl).hostname;
@@ -1183,18 +1349,18 @@ var init_resolver = __esm({
         if (this.cache.has(serverCacheKey)) {
           return this.cache.get(serverCacheKey);
         }
-        const record2 = await this.api.servers.get(serverUuid);
-        const target = this._buildTarget(serverUuid, record2);
+        const record3 = await this.api.servers.get(serverUuid);
+        const target = this._buildTarget(serverUuid, record3);
         this.cache.set(serverCacheKey, target);
         return target;
       }
-      _buildTarget(serverUuid, record2) {
+      _buildTarget(serverUuid, record3) {
         const isCoolifyHost = this.coolifyHostUuid !== void 0 && serverUuid === this.coolifyHostUuid;
         if (isCoolifyHost) {
           return { serverUuid, isCoolifyHost: true };
         }
-        const ip = String(record2["ip"] ?? "");
-        const user = String(record2["user"] ?? "root");
+        const ip = String(record3["ip"] ?? "");
+        const user = String(record3["user"] ?? "root");
         const IP_RE = /^[A-Za-z0-9.\-:\[\]]+$/;
         if (!IP_RE.test(ip)) {
           throw new CoolifyError(
@@ -17332,7 +17498,7 @@ var require_Channel = __commonJS({
         const protocol = channel._client._protocol;
         const outgoing = channel.outgoing;
         const packetSize = outgoing.packetSize;
-        const id = outgoing.id;
+        const id2 = outgoing.id;
         let window2 = outgoing.window;
         const len = data.length;
         let p = 0;
@@ -17345,9 +17511,9 @@ var require_Channel = __commonJS({
           if (sliceLen > packetSize)
             sliceLen = packetSize;
           if (p === 0 && sliceLen === len)
-            protocol.channelExtData(id, data, STDERR);
+            protocol.channelExtData(id2, data, STDERR);
           else
-            protocol.channelExtData(id, bufferSlice(data, p, p + sliceLen), STDERR);
+            protocol.channelExtData(id2, bufferSlice(data, p, p + sliceLen), STDERR);
           p += sliceLen;
           window2 -= sliceLen;
         }
@@ -17414,7 +17580,7 @@ var require_Channel = __commonJS({
         const protocol = this._client._protocol;
         const outgoing = this.outgoing;
         const packetSize = outgoing.packetSize;
-        const id = outgoing.id;
+        const id2 = outgoing.id;
         let window2 = outgoing.window;
         const len = data.length;
         let p = 0;
@@ -17427,9 +17593,9 @@ var require_Channel = __commonJS({
           if (sliceLen > packetSize)
             sliceLen = packetSize;
           if (p === 0 && sliceLen === len)
-            protocol.channelData(id, data);
+            protocol.channelData(id2, data);
           else
-            protocol.channelData(id, bufferSlice(data, p, p + sliceLen));
+            protocol.channelData(id2, bufferSlice(data, p, p + sliceLen));
           p += sliceLen;
           window2 -= sliceLen;
         }
@@ -17631,43 +17797,43 @@ var require_utils2 = __commonJS({
         this._count = 0;
       }
       add(val) {
-        let id;
+        let id2;
         if (this._cur < MAX_CHANNEL) {
-          id = ++this._cur;
+          id2 = ++this._cur;
         } else if (this._count === 0) {
           this._cur = 0;
-          id = 0;
+          id2 = 0;
         } else {
           const channels = this._channels;
           for (let i = 0; i < MAX_CHANNEL; ++i) {
             if (channels[i] === void 0) {
-              id = i;
+              id2 = i;
               break;
             }
           }
         }
-        if (id === void 0)
+        if (id2 === void 0)
           return -1;
-        this._channels[id] = val || true;
+        this._channels[id2] = val || true;
         ++this._count;
-        return id;
+        return id2;
       }
-      update(id, val) {
-        if (typeof id !== "number" || id < 0 || id >= MAX_CHANNEL || !isFinite(id))
-          throw new Error(`Invalid channel id: ${id}`);
-        if (val && this._channels[id])
-          this._channels[id] = val;
+      update(id2, val) {
+        if (typeof id2 !== "number" || id2 < 0 || id2 >= MAX_CHANNEL || !isFinite(id2))
+          throw new Error(`Invalid channel id: ${id2}`);
+        if (val && this._channels[id2])
+          this._channels[id2] = val;
       }
-      get(id) {
-        if (typeof id !== "number" || id < 0 || id >= MAX_CHANNEL || !isFinite(id))
-          throw new Error(`Invalid channel id: ${id}`);
-        return this._channels[id];
+      get(id2) {
+        if (typeof id2 !== "number" || id2 < 0 || id2 >= MAX_CHANNEL || !isFinite(id2))
+          throw new Error(`Invalid channel id: ${id2}`);
+        return this._channels[id2];
       }
-      remove(id) {
-        if (typeof id !== "number" || id < 0 || id >= MAX_CHANNEL || !isFinite(id))
-          throw new Error(`Invalid channel id: ${id}`);
-        if (this._channels[id]) {
-          delete this._channels[id];
+      remove(id2) {
+        if (typeof id2 !== "number" || id2 < 0 || id2 >= MAX_CHANNEL || !isFinite(id2))
+          throw new Error(`Invalid channel id: ${id2}`);
+        if (this._channels[id2]) {
+          delete this._channels[id2];
           if (this._count)
             --this._count;
         }
@@ -17680,9 +17846,9 @@ var require_utils2 = __commonJS({
         const chanIDs = Object.keys(channels);
         const client = this._client;
         for (let i = 0; i < chanIDs.length; ++i) {
-          const id = +chanIDs[i];
-          const channel = channels[id];
-          onCHANNEL_CLOSE(client, id, channel._channel || channel, err2, true);
+          const id2 = +chanIDs[i];
+          const channel = channels[id2];
+          onCHANNEL_CLOSE(client, id2, channel._channel || channel, err2, true);
         }
       }
     };
@@ -21338,12 +21504,12 @@ var require_lib2 = __commonJS({
 
 // src/core/ssh/client.ts
 import { createHash, timingSafeEqual } from "crypto";
-import { readFileSync as readFileSync2 } from "fs";
+import { readFileSync as readFileSync3 } from "fs";
 import { homedir as homedir2 } from "os";
-import { join as join2 } from "path";
+import { join as join3 } from "path";
 function makeHostVerifier(cfg, homeDir) {
   const expectedFingerprint = cfg.hostFingerprint;
-  const knownHostsPath = cfg.knownHostsPath ?? (expectedFingerprint ? void 0 : join2(homeDir, ".ssh", "known_hosts"));
+  const knownHostsPath = cfg.knownHostsPath ?? (expectedFingerprint ? void 0 : join3(homeDir, ".ssh", "known_hosts"));
   const sshHost = cfg.host;
   const sshPort = cfg.port;
   return (keyBuf) => {
@@ -21364,7 +21530,7 @@ function makeHostVerifier(cfg, homeDir) {
     }
     if (knownHostsPath) {
       try {
-        const content = readFileSync2(knownHostsPath).toString("utf8");
+        const content = readFileSync3(knownHostsPath).toString("utf8");
         const presentedDigest = createHash("sha256").update(keyBuf).digest();
         const hostToken = sshHost;
         const portToken = `[${sshHost}]:${sshPort}`;
@@ -21406,10 +21572,14 @@ var init_client2 = __esm({
         return new Promise((resolve2, reject) => {
           const conn = new import_ssh2.Client();
           conn.on("ready", () => {
+            conn.on("close", () => {
+              if (this.conn === conn) this.conn = null;
+            });
             this.conn = conn;
             resolve2();
           });
           conn.on("error", (err2) => {
+            if (this.conn === conn) this.conn = null;
             reject(err2);
           });
           const hostVerifier = makeHostVerifier(this.cfg, homedir2());
@@ -21417,7 +21587,7 @@ var init_client2 = __esm({
             host: this.cfg.host,
             port: this.cfg.port,
             username: this.cfg.user,
-            privateKey: readFileSync2(this.cfg.keyPath),
+            privateKey: readFileSync3(this.cfg.keyPath),
             passphrase: this.cfg.passphrase,
             readyTimeout: 1e4,
             hostVerifier,
@@ -21438,6 +21608,7 @@ var init_client2 = __esm({
         return new Promise((resolve2, reject) => {
           conn.exec(command, (err2, stream) => {
             if (err2) {
+              this._noteOpError(err2);
               reject(err2);
               return;
             }
@@ -21492,6 +21663,7 @@ var init_client2 = __esm({
         return new Promise((resolve2, reject) => {
           conn.exec(command, (err2, stream) => {
             if (err2) {
+              this._noteOpError(err2);
               reject(err2);
               return;
             }
@@ -21545,6 +21717,7 @@ var init_client2 = __esm({
         return new Promise((resolve2, reject) => {
           conn.sftp((err2, sftp) => {
             if (err2) {
+              this._noteOpError(err2);
               reject(err2);
               return;
             }
@@ -21614,11 +21787,23 @@ var init_client2 = __esm({
           resolve2();
         });
       }
+      /** True while the underlying ssh2 connection is up (post-ready, not yet closed/errored). */
+      isConnected() {
+        return this.conn !== null;
+      }
       _requireConn() {
         if (!this.conn) {
           throw new Error("SshClient: not connected. Call connect() first.");
         }
         return this.conn;
+      }
+      /**
+       * ssh2 reports operations on a silently-dead socket with "Not connected"
+       * without necessarily emitting close/error first. Treat that as proof the
+       * session is gone so the next pooled call reconnects.
+       */
+      _noteOpError(err2) {
+        if (/not connected/i.test(err2.message)) this.conn = null;
       }
     };
   }
@@ -21979,9 +22164,13 @@ var init_host_ops = __esm({
 function makeInstanceHostOps(config2, api, resolver) {
   void api;
   let instance;
+  let sshRef;
   return async () => {
     if (!config2.enableHostOps) {
       throw new CoolifyError("host_ops_disabled", `Host-ops is disabled for instance '${config2.name}'. Set enableHostOps:true (and ssh.keyPath) to use this tool.`);
+    }
+    if (instance && sshRef && !sshRef.isConnected()) {
+      await sshRef.connect();
     }
     if (!instance) {
       if (!config2.ssh) throw new CoolifyError("invalid_input", `Instance '${config2.name}' has enableHostOps but no ssh.keyPath configured.`);
@@ -21996,6 +22185,7 @@ function makeInstanceHostOps(config2, api, resolver) {
         passphrase: config2.ssh.passphrase
       });
       await ssh.connect();
+      sshRef = ssh;
       instance = new HostOps(ssh, resolver, config2.db?.readonlyUser, config2.db?.readonlyPassword);
     }
     return instance;
@@ -22253,6 +22443,34 @@ var init_doctor = __esm({
 });
 
 // src/cli/io.ts
+var io_exports = {};
+__export(io_exports, {
+  defaultIO: () => defaultIO,
+  makeScriptedIO: () => makeScriptedIO
+});
+function makeScriptedIO(answers) {
+  const queue = [...answers];
+  const printed = [];
+  const next = () => queue.length ? queue.shift() : "";
+  return {
+    printed,
+    async prompt(_q, def) {
+      const a = next();
+      return a === "" && def !== void 0 ? def : a;
+    },
+    async promptMasked() {
+      return next();
+    },
+    async confirm(_q, def = false) {
+      const a = next().trim().toLowerCase();
+      if (a === "") return def;
+      return a === "y" || a === "yes";
+    },
+    print(s) {
+      printed.push(s);
+    }
+  };
+}
 async function getRl() {
   if (!_rl) {
     const rl = await import("node:readline/promises");
@@ -22268,6 +22486,7 @@ var _rl, _muted, defaultIO;
 var init_io = __esm({
   "src/cli/io.ts"() {
     "use strict";
+    init_ansi();
     _muted = false;
     defaultIO = {
       async prompt(q, def) {
@@ -22292,7 +22511,7 @@ var init_io = __esm({
         return a === "y" || a === "yes";
       },
       print(s) {
-        process.stdout.write(s + "\n");
+        process.stdout.write(paintLine(s, defaultPalette()) + "\n");
       },
       close() {
         _rl?.close();
@@ -22303,8 +22522,8 @@ var init_io = __esm({
 });
 
 // src/cli/ssh-discover.ts
-import { readdirSync, readFileSync as readFileSync3 } from "fs";
-import { join as join3 } from "path";
+import { readdirSync, readFileSync as readFileSync4 } from "fs";
+import { join as join4 } from "path";
 import { homedir as homedir3 } from "os";
 function classifyKeyContent(content, filename) {
   const head = content.slice(0, 200);
@@ -22316,7 +22535,7 @@ function classifyKeyContent(content, filename) {
   if (filename.endsWith(".pub")) return "public";
   return "other";
 }
-function scanSshDir(dir = join3(homedir3(), ".ssh")) {
+function scanSshDir(dir = join4(homedir3(), ".ssh")) {
   let names;
   try {
     names = readdirSync(dir);
@@ -22326,10 +22545,10 @@ function scanSshDir(dir = join3(homedir3(), ".ssh")) {
   const out = [];
   for (const name of names) {
     if (name === "known_hosts" || name === "known_hosts.old" || name === "config" || name === "authorized_keys") continue;
-    const path = join3(dir, name);
+    const path = join4(dir, name);
     let content = "";
     try {
-      content = readFileSync3(path, "utf8");
+      content = readFileSync4(path, "utf8");
     } catch {
       continue;
     }
@@ -22367,7 +22586,7 @@ var init_ssh_discover = __esm({
 });
 
 // src/core/config/path.ts
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 function resolveConfigPath(argv, env, home) {
   const i = argv.indexOf("--config");
   if (i !== -1) {
@@ -22375,7 +22594,7 @@ function resolveConfigPath(argv, env, home) {
     if (next !== void 0 && !next.startsWith("--")) return next;
   }
   if (env.COOLIFY_CONFIG) return env.COOLIFY_CONFIG;
-  return join4(home, ".coolify-mcp", "config.json");
+  return join5(home, ".coolify-mcp", "config.json");
 }
 var init_path = __esm({
   "src/core/config/path.ts"() {
@@ -22384,12 +22603,12 @@ var init_path = __esm({
 });
 
 // src/cli/config-file.ts
-import { readFileSync as readFileSync4, writeFileSync, existsSync as existsSync2, mkdirSync, copyFileSync, chmodSync } from "node:fs";
-import { dirname } from "node:path";
+import { readFileSync as readFileSync5, writeFileSync, existsSync as existsSync2, mkdirSync, copyFileSync, chmodSync } from "node:fs";
+import { dirname as dirname2 } from "node:path";
 function readRawConfig(path) {
   let text;
   try {
-    text = readFileSync4(path, "utf8");
+    text = readFileSync5(path, "utf8");
   } catch (e) {
     if (e.code === "ENOENT") return null;
     throw new CoolifyError("invalid_input", `config: failed to read/parse ${path}: ${e instanceof Error ? e.message : String(e)}`);
@@ -22406,7 +22625,7 @@ function readRawConfig(path) {
   return parsed;
 }
 function writeRawConfig(path, obj) {
-  mkdirSync(dirname(path), { recursive: true });
+  mkdirSync(dirname2(path), { recursive: true });
   if (existsSync2(path)) {
     copyFileSync(path, path + ".bak");
     chmodSync(path + ".bak", 384);
@@ -22432,8 +22651,8 @@ __export(init_exports, {
   runInitFlow: () => runInitFlow
 });
 import { randomBytes, createHash as createHash2 } from "node:crypto";
-import { readFileSync as readFileSync5 } from "node:fs";
-import { join as join5 } from "node:path";
+import { readFileSync as readFileSync6 } from "node:fs";
+import { join as join6 } from "node:path";
 import { homedir as homedir4 } from "node:os";
 function buildInstanceObject(input) {
   const inst = {
@@ -22623,14 +22842,14 @@ function runInitFlowWithRealDeps(io, env, argv, envSecrets) {
     discoverKey: async (host, user, port) => discoverWorkingKey({
       candidates: scanSshDir(),
       tryKey: async (path, passphrase) => {
-        const c = new SshClient({ host, user, port, keyPath: path, passphrase, knownHostsPath: join5(homedir4(), ".ssh", "known_hosts") });
+        const c = new SshClient({ host, user, port, keyPath: path, passphrase, knownHostsPath: join6(homedir4(), ".ssh", "known_hosts") });
         await c.connect();
         await c.close();
       },
       askPassphrase: (path) => io.promptMasked(`Passphrase for ${path}`)
     }),
     getFingerprint: async (host, port) => {
-      const kh = readFileSync5(join5(homedir4(), ".ssh", "known_hosts"), "utf8");
+      const kh = readFileSync6(join6(homedir4(), ".ssh", "known_hosts"), "utf8");
       for (const line of kh.split(/\r?\n/)) {
         const parts = line.trim().split(/\s+/);
         if (parts.length >= 3 && (parts[0] === host || parts[0] === `[${host}]:${port}`)) {
@@ -22659,12 +22878,377 @@ var init_init = __esm({
   }
 });
 
+// src/cli/fields.ts
+function isEnvRef(v) {
+  return typeof v === "string" && /^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(v);
+}
+function bad(msg) {
+  throw new CoolifyError("invalid_input", msg);
+}
+function parseFieldValue(field, raw) {
+  const kind = SETTABLE_FIELDS[field];
+  if (!kind) bad(`Unknown field '${field}'. Settable fields: ${Object.keys(SETTABLE_FIELDS).join(", ")}`);
+  switch (kind) {
+    case "boolean": {
+      const v = raw.trim().toLowerCase();
+      if (["true", "on", "1", "yes"].includes(v)) return true;
+      if (["false", "off", "0", "no"].includes(v)) return false;
+      bad(`'${field}' expects true/false (also accepts on/off, 1/0).`);
+      break;
+    }
+    case "port": {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 1 || n > 65535) bad(`'${field}' expects a port number 1-65535.`);
+      return n;
+    }
+    case "url": {
+      let u;
+      try {
+        u = new URL(raw);
+      } catch {
+        bad(`'${field}' expects an http(s) URL.`);
+      }
+      if (u.protocol !== "http:" && u.protocol !== "https:") bad(`'${field}' expects an http(s) URL.`);
+      return raw.replace(/\/+$/, "");
+    }
+    case "token": {
+      if (isEnvRef(raw)) return raw;
+      assertCoolifyTokenFormat(raw, field);
+      return raw;
+    }
+    case "dbrole": {
+      if (!isValidDbRoleName(raw)) bad(`'${field}' must be a valid Postgres role name (letters, digits, underscores; not digit-led).`);
+      return raw;
+    }
+    case "secret":
+    case "string": {
+      if (raw === "") bad(`'${field}' cannot be empty.`);
+      return raw;
+    }
+  }
+}
+function blockOf(field) {
+  if (field.startsWith("ssh.")) return "ssh";
+  if (field.startsWith("db.")) return "db";
+  return null;
+}
+function setField(inst, field, value) {
+  if (!SETTABLE_FIELDS[field]) bad(`Unknown field '${field}'. Settable fields: ${Object.keys(SETTABLE_FIELDS).join(", ")}`);
+  const block = blockOf(field);
+  if (!block) {
+    const old2 = inst[field];
+    inst[field] = value;
+    return { old: old2 };
+  }
+  const key = field.slice(block.length + 1);
+  let obj = inst[block];
+  if (obj === void 0 || obj === null || typeof obj !== "object" || Array.isArray(obj)) {
+    if (BLOCK_CREATORS[block] !== field) {
+      bad(`Instance has no '${block}' block yet \u2014 set ${BLOCK_CREATORS[block]} first.`);
+    }
+    obj = {};
+    inst[block] = obj;
+  }
+  const rec = obj;
+  const old = rec[key];
+  rec[key] = value;
+  return { old };
+}
+function unsetField(inst, field) {
+  if (!UNSETTABLE_FIELDS.has(field)) {
+    if (field === "ssh.keyPath" || field === "db.readonlyUser") {
+      const block2 = blockOf(field);
+      bad(`'${field}' is required while the block exists \u2014 unset the whole '${block2}' block instead.`);
+    }
+    if (field in SETTABLE_FIELDS) bad(`Cannot unset required field '${field}'.`);
+    bad(`Unknown or non-optional field '${field}'. Unsettable: ${[...UNSETTABLE_FIELDS].join(", ")}`);
+  }
+  const block = blockOf(field);
+  if (!block) {
+    const old2 = inst[field];
+    delete inst[field];
+    return { old: old2 };
+  }
+  const key = field.slice(block.length + 1);
+  const obj = inst[block];
+  if (obj === void 0 || obj === null || typeof obj !== "object" || Array.isArray(obj)) return { old: void 0 };
+  const rec = obj;
+  const old = rec[key];
+  delete rec[key];
+  return { old };
+}
+function redactValue(field, value) {
+  if (value === void 0) return "(unset)";
+  if (value !== null && typeof value === "object") return "(configured)";
+  const s = String(value);
+  if (!SECRET_FIELDS.includes(field)) return s;
+  if (isEnvRef(s)) return s;
+  if (field === "token") {
+    const pipe2 = s.indexOf("|");
+    const id2 = pipe2 > 0 ? s.slice(0, pipe2) : "?";
+    return s.length - pipe2 - 1 > 8 ? `${id2}|****${s.slice(-4)}` : `${id2}|****`;
+  }
+  return s.length > 8 ? `****${s.slice(-4)}` : "****";
+}
+var SETTABLE_FIELDS, SECRET_FIELDS, UNSETTABLE_FIELDS, BLOCK_CREATORS;
+var init_fields = __esm({
+  "src/cli/fields.ts"() {
+    "use strict";
+    init_errors();
+    init_validate();
+    init_init();
+    SETTABLE_FIELDS = {
+      baseUrl: "url",
+      token: "token",
+      enableHostOps: "boolean",
+      allowDestructive: "boolean",
+      pinnedCoolifyVersion: "string",
+      "ssh.keyPath": "string",
+      "ssh.host": "string",
+      "ssh.hostServer": "string",
+      "ssh.user": "string",
+      "ssh.port": "port",
+      "ssh.fingerprint": "string",
+      "ssh.knownHostsPath": "string",
+      "ssh.passphrase": "secret",
+      "db.readonlyUser": "dbrole",
+      "db.readonlyPassword": "secret"
+    };
+    SECRET_FIELDS = ["token", "ssh.passphrase", "db.readonlyPassword"];
+    UNSETTABLE_FIELDS = /* @__PURE__ */ new Set([
+      "pinnedCoolifyVersion",
+      "ssh",
+      "ssh.host",
+      "ssh.hostServer",
+      "ssh.user",
+      "ssh.port",
+      "ssh.fingerprint",
+      "ssh.knownHostsPath",
+      "ssh.passphrase",
+      "db",
+      "db.readonlyPassword"
+    ]);
+    BLOCK_CREATORS = { ssh: "ssh.keyPath", db: "db.readonlyUser" };
+  }
+});
+
+// src/cli/verify.ts
+import { homedir as homedir5 } from "node:os";
+import { join as join7 } from "node:path";
+function expandStrings(v, env) {
+  if (typeof v === "string") return expandEnvRefs(v, env);
+  if (Array.isArray(v)) return v.map((x) => expandStrings(x, env));
+  if (v !== null && typeof v === "object") {
+    const out = {};
+    for (const [k, val] of Object.entries(v)) out[k] = expandStrings(val, env);
+    return out;
+  }
+  return v;
+}
+function makeVerifier(env, home = homedir5()) {
+  return async (name, instRaw, opts) => {
+    let inst;
+    try {
+      inst = expandStrings(instRaw, env);
+    } catch (e) {
+      return { skipped: `unresolved env reference (${e instanceof Error ? e.message : String(e)})` };
+    }
+    const baseUrl = typeof inst.baseUrl === "string" ? inst.baseUrl : "";
+    const token = typeof inst.token === "string" ? inst.token : "";
+    if (!baseUrl || !token) return { skipped: "instance has no baseUrl/token to verify" };
+    try {
+      const api = new CoolifyApiClient({ baseUrl, token, extraHeaders: {} });
+      await api.health();
+      const version2 = await api.version();
+      let detail = `API ok (Coolify ${version2})`;
+      const ssh = inst.ssh;
+      if (opts.sshChanged && ssh && typeof ssh.keyPath === "string") {
+        const c = new SshClient({
+          host: typeof ssh.host === "string" ? ssh.host : new URL(baseUrl).hostname,
+          user: typeof ssh.user === "string" ? ssh.user : "root",
+          port: typeof ssh.port === "number" ? ssh.port : 22,
+          keyPath: expandHome(ssh.keyPath, home),
+          passphrase: typeof ssh.passphrase === "string" ? ssh.passphrase : void 0,
+          hostFingerprint: typeof ssh.fingerprint === "string" ? ssh.fingerprint : void 0,
+          knownHostsPath: typeof ssh.knownHostsPath === "string" ? expandHome(ssh.knownHostsPath, home) : join7(home, ".ssh", "known_hosts")
+        });
+        await c.connect();
+        await c.close();
+        detail += ", SSH ok";
+      }
+      return { ok: true, detail };
+    } catch (e) {
+      return { ok: false, detail: e instanceof Error ? e.message : String(e) };
+    }
+  };
+}
+var init_verify = __esm({
+  "src/cli/verify.ts"() {
+    "use strict";
+    init_env_expand();
+    init_client();
+    init_client2();
+  }
+});
+
+// src/cli/edit.ts
+var edit_exports = {};
+__export(edit_exports, {
+  editInstance: () => editInstance
+});
+function record(changes, field, old, next) {
+  if (old !== next) changes.push({ field, old, next });
+}
+async function optStr(io, label, field, cur) {
+  const curStr = typeof cur === "string" ? cur : void 0;
+  const a = (await io.prompt(curStr ? `${label}` : `${label} (Enter to skip)`, curStr)).trim();
+  if (a === "") return curStr;
+  return String(parseFieldValue(field, a));
+}
+async function editInstance(ctx, name) {
+  const cfg = ctx.raw;
+  if (!cfg) throw new CoolifyError("invalid_input", "No config file to edit. Run 'coolify-mcp init' to create one.");
+  const instances = cfg.instances && typeof cfg.instances === "object" ? cfg.instances : {};
+  if (!name) throw new CoolifyError("invalid_input", "Usage: coolify-mcp instances edit <name>");
+  if (instances[name] === void 0) {
+    throw new CoolifyError("invalid_input", `Unknown instance '${name}'; known: ${Object.keys(instances).join(", ") || "(none)"}`);
+  }
+  const { io, out } = ctx;
+  const orig = instances[name];
+  const inst = structuredClone(orig);
+  const changes = [];
+  out(`Editing instance '${name}' \u2014 Enter keeps the current value.
+`);
+  const baseUrl = await io.prompt("Coolify base URL", typeof inst.baseUrl === "string" ? inst.baseUrl : void 0);
+  const newBaseUrl = String(parseFieldValue("baseUrl", baseUrl));
+  record(changes, "baseUrl", inst.baseUrl, newBaseUrl);
+  inst.baseUrl = newBaseUrl;
+  const tokenInput = (await io.promptMasked(`API token (current ${redactValue("token", inst.token)}; Enter keeps it)`)).trim();
+  if (tokenInput !== "") {
+    const newToken = String(parseFieldValue("token", tokenInput));
+    record(changes, "token", inst.token, newToken);
+    inst.token = newToken;
+  }
+  const hostOps = await io.confirm("Enable host-ops (SSH/Docker/live logs)?", inst.enableHostOps === true);
+  record(changes, "enableHostOps", inst.enableHostOps === true, hostOps);
+  inst.enableHostOps = hostOps;
+  const destructive = await io.confirm("Allow destructive tools?", inst.allowDestructive === true);
+  record(changes, "allowDestructive", inst.allowDestructive === true, destructive);
+  inst.allowDestructive = destructive;
+  const curSsh = inst.ssh && typeof inst.ssh === "object" ? inst.ssh : void 0;
+  if (curSsh) {
+    if (await io.confirm("Edit SSH settings?", false)) {
+      const ssh = { ...curSsh };
+      const keyPath = await io.prompt("SSH key path", typeof ssh.keyPath === "string" ? ssh.keyPath : void 0);
+      record(changes, "ssh.keyPath", ssh.keyPath, keyPath);
+      ssh.keyPath = String(parseFieldValue("ssh.keyPath", keyPath));
+      const host = await optStr(io, "SSH host", "ssh.host", ssh.host);
+      record(changes, "ssh.host", ssh.host, host);
+      if (host !== void 0) ssh.host = host;
+      const hostServer = await optStr(io, "Coolify server name/uuid for the control host", "ssh.hostServer", ssh.hostServer);
+      record(changes, "ssh.hostServer", ssh.hostServer, hostServer);
+      if (hostServer !== void 0) ssh.hostServer = hostServer;
+      const user = await optStr(io, "SSH user", "ssh.user", ssh.user);
+      record(changes, "ssh.user", ssh.user, user);
+      if (user !== void 0) ssh.user = user;
+      const portRaw = (await io.prompt("SSH port", typeof ssh.port === "number" ? String(ssh.port) : void 0)).trim();
+      if (portRaw !== "") {
+        const port = parseFieldValue("ssh.port", portRaw);
+        record(changes, "ssh.port", ssh.port, port);
+        ssh.port = port;
+      }
+      const fingerprint = await optStr(io, "Host key fingerprint (SHA256:\u2026)", "ssh.fingerprint", ssh.fingerprint);
+      record(changes, "ssh.fingerprint", ssh.fingerprint, fingerprint);
+      if (fingerprint !== void 0) ssh.fingerprint = fingerprint;
+      const pass = (await io.promptMasked(`Key passphrase (current ${redactValue("ssh.passphrase", ssh.passphrase)}; Enter keeps it)`)).trim();
+      if (pass !== "") {
+        record(changes, "ssh.passphrase", ssh.passphrase, pass);
+        ssh.passphrase = pass;
+      }
+      inst.ssh = ssh;
+    }
+  } else if (await io.confirm("Add SSH settings (host-ops)?", false)) {
+    const keyPath = String(parseFieldValue("ssh.keyPath", await io.prompt("SSH key path")));
+    const ssh = { keyPath };
+    record(changes, "ssh.keyPath", void 0, keyPath);
+    const host = await optStr(io, "SSH host", "ssh.host", void 0);
+    if (host !== void 0) {
+      ssh.host = host;
+      record(changes, "ssh.host", void 0, host);
+    }
+    const pass = (await io.promptMasked("Key passphrase (Enter to skip)")).trim();
+    if (pass !== "") {
+      ssh.passphrase = pass;
+      record(changes, "ssh.passphrase", void 0, pass);
+    }
+    inst.ssh = ssh;
+  }
+  const curDb = inst.db && typeof inst.db === "object" ? inst.db : void 0;
+  if (curDb) {
+    if (await io.confirm("Edit read-only DB settings?", false)) {
+      const db = { ...curDb };
+      const user = await io.prompt("Read-only DB role name", typeof db.readonlyUser === "string" ? db.readonlyUser : void 0);
+      record(changes, "db.readonlyUser", db.readonlyUser, user);
+      db.readonlyUser = String(parseFieldValue("db.readonlyUser", user));
+      const pw = (await io.promptMasked(`DB role password (current ${redactValue("db.readonlyPassword", db.readonlyPassword)}; Enter keeps it)`)).trim();
+      if (pw !== "") {
+        record(changes, "db.readonlyPassword", db.readonlyPassword, pw);
+        db.readonlyPassword = pw;
+      }
+      inst.db = db;
+    }
+  } else if (await io.confirm("Add read-only DB settings (query_coolify_db)?", false)) {
+    const user = String(parseFieldValue("db.readonlyUser", await io.prompt("Read-only DB role name", "coolify_ro")));
+    const db = { readonlyUser: user };
+    record(changes, "db.readonlyUser", void 0, user);
+    const pw = (await io.promptMasked("DB role password (Enter to skip)")).trim();
+    if (pw !== "") {
+      db.readonlyPassword = pw;
+      record(changes, "db.readonlyPassword", void 0, pw);
+    }
+    inst.db = db;
+  }
+  if (changes.length === 0) {
+    out("No changes.");
+    return 0;
+  }
+  const sshChanged = changes.some((c) => c.field.startsWith("ssh."));
+  if (!ctx.noVerify) {
+    const r = await ctx.verify(name, inst, { sshChanged });
+    if ("skipped" in r) {
+      out(`verification skipped: ${r.skipped}`);
+    } else if (!r.ok) {
+      out(`\u2717 verification failed: ${r.detail}`);
+      out("  Nothing was written. Fix the values and try again.");
+      return 1;
+    } else {
+      out(`\u2713 verified '${name}' \u2014 ${r.detail}`);
+    }
+  }
+  instances[name] = inst;
+  cfg.instances = instances;
+  ctx.write(cfg);
+  out(`
+\u2713 updated '${name}':`);
+  for (const c of changes) {
+    out(`  ${c.field}: ${redactValue(c.field, c.old)} \u2192 ${redactValue(c.field, c.next)}`);
+  }
+  return 0;
+}
+var init_edit = __esm({
+  "src/cli/edit.ts"() {
+    "use strict";
+    init_errors();
+    init_fields();
+  }
+});
+
 // src/cli/instances.ts
 var instances_exports = {};
 __export(instances_exports, {
   runInstances: () => runInstances
 });
-import { homedir as homedir5 } from "node:os";
+import { homedir as homedir6 } from "node:os";
 function flag(v) {
   return v === true ? "on" : "off";
 }
@@ -22719,7 +23303,13 @@ function setDefault(path, raw, name, out) {
   out(`\u2713 default instance is now '${target}'`);
   return 0;
 }
-function listInstances(raw, env, out) {
+function usesEnvRefs(v) {
+  if (typeof v === "string") return /\$\{[A-Za-z_][A-Za-z0-9_]*\}/.test(v);
+  if (Array.isArray(v)) return v.some(usesEnvRefs);
+  if (v !== null && typeof v === "object") return Object.values(v).some(usesEnvRefs);
+  return false;
+}
+function listInstances(path, raw, env, out) {
   if (!raw) {
     if (env.COOLIFY_BASE_URL) {
       out("No config file \u2014 using environment variables (single 'default' instance):");
@@ -22736,31 +23326,110 @@ function listInstances(raw, env, out) {
     out("Config file has no instances.");
     return 0;
   }
+  out(`config: ${path}`);
   out("instances (* = default):");
+  const nameW = Math.max(...names.map((n) => n.length));
+  const urlW = Math.max(...names.map((n) => String(instances[n].baseUrl ?? "").length));
   for (const name of names) {
     const i = instances[name];
     const mark = name === def ? "*" : " ";
-    out(`  ${mark} ${name}  ${String(i.baseUrl ?? "")}  host-ops:${flag(i.enableHostOps)}  destructive:${flag(i.allowDestructive)}`);
+    const cols = [
+      `${mark} ${name.padEnd(nameW)}`,
+      String(i.baseUrl ?? "").padEnd(urlW),
+      `host-ops:${flag(i.enableHostOps)}`,
+      `destructive:${flag(i.allowDestructive)}`,
+      `ssh:${i.ssh ? "\u2713" : "\u2014"}`,
+      `db:${i.db ? "\u2713" : "\u2014"}`
+    ];
+    if (usesEnvRefs(i)) cols.push("env-refs:\u2713");
+    out(`  ${cols.join("  ")}`);
   }
   return 0;
 }
+async function reportAndVerify(ctx, instRaw, changeLine, sshChanged) {
+  ctx.out(changeLine);
+  if (ctx.noVerify) return 0;
+  const r = await ctx.verify(ctx.name, instRaw, { sshChanged });
+  if ("skipped" in r) {
+    ctx.out(`verification skipped: ${r.skipped}`);
+    return 0;
+  }
+  if (r.ok) {
+    ctx.out(`\u2713 verified '${ctx.name}' \u2014 ${r.detail}`);
+    return 0;
+  }
+  ctx.out(`\u26A0 verification failed: ${r.detail}`);
+  ctx.out(`  The change was saved anyway. Previous config: ${ctx.path}.bak`);
+  return 1;
+}
+function setInstanceField(ctx, name, field, rawValue) {
+  const cfg = requireFile(ctx.raw);
+  const instances = instancesOf(cfg);
+  const target = requireKnown(instances, name);
+  if (!field) throw new CoolifyError("invalid_input", "Usage: coolify-mcp instances set <name> <field> [value]");
+  return (async () => {
+    let value = rawValue;
+    if (value === void 0) {
+      if (!SECRET_FIELDS.includes(field) || !ctx.io) {
+        throw new CoolifyError("invalid_input", `A value is required for '${field}'.`);
+      }
+      value = await ctx.io.promptMasked(`New value for ${target}.${field}`);
+    }
+    const parsed = parseFieldValue(field, value);
+    const inst = instances[target];
+    const { old } = setField(inst, field, parsed);
+    writeRawConfig(ctx.path, cfg);
+    const line = `\u2713 ${target}.${field}: ${redactValue(field, old)} \u2192 ${redactValue(field, parsed)}`;
+    return reportAndVerify({ ...ctx, name: target }, inst, line, field.startsWith("ssh."));
+  })();
+}
+async function unsetInstanceField(ctx, name, field) {
+  const cfg = requireFile(ctx.raw);
+  const instances = instancesOf(cfg);
+  const target = requireKnown(instances, name);
+  if (!field) throw new CoolifyError("invalid_input", "Usage: coolify-mcp instances unset <name> <field>");
+  const inst = instances[target];
+  const { old } = unsetField(inst, field);
+  writeRawConfig(ctx.path, cfg);
+  const line = `\u2713 ${target}.${field}: ${redactValue(field, old)} \u2192 (unset)`;
+  return reportAndVerify({ ...ctx, name: target }, inst, line, field === "ssh" || field.startsWith("ssh."));
+}
 async function runInstances(argv, env, out, deps = {}) {
-  const home = deps.home ?? homedir5();
+  const home = deps.home ?? homedir6();
   const path = resolveConfigPath(argv, env, home);
   const positional = argv.filter((a, idx) => !a.startsWith("--") && argv[idx - 1] !== "--config");
   const action = positional[0] ?? "list";
+  const noVerify = argv.includes("--no-verify");
+  const verify = deps.verify ?? makeVerifier(env, home);
   try {
     const raw = readRawConfig(path);
     switch (action) {
       case "list":
-        return listInstances(raw, env, out);
+        return listInstances(path, raw, env, out);
       case "default":
         return setDefault(path, raw, positional[1], out);
       case "rm":
       case "remove":
         return removeInstance(path, raw, positional[1], out);
+      case "set":
+        return await setInstanceField({ path, raw, verify, noVerify, out, io: deps.io }, positional[1], positional[2], positional[3]);
+      case "unset":
+        return await unsetInstanceField({ path, raw, verify, noVerify, out }, positional[1], positional[2]);
+      case "edit": {
+        const { editInstance: editInstance2 } = await Promise.resolve().then(() => (init_edit(), edit_exports));
+        const { defaultIO: defaultIO2 } = await Promise.resolve().then(() => (init_io(), io_exports));
+        const io = deps.io ?? defaultIO2;
+        try {
+          return await editInstance2(
+            { path, raw, verify, noVerify, out, io, write: (cfg) => writeRawConfig(path, cfg) },
+            positional[1]
+          );
+        } finally {
+          io.close?.();
+        }
+      }
       default:
-        out(`Unknown action '${action}'. Usage: coolify-mcp instances [list|default <name>|rm <name>]`);
+        out(`Unknown action '${action}'. Usage: coolify-mcp instances [list|default <name>|rm <name>|set <name> <field> [value]|unset <name> <field>|edit <name>]`);
         return 1;
     }
   } catch (e) {
@@ -22774,6 +23443,8 @@ var init_instances = __esm({
     init_path();
     init_config_file();
     init_errors();
+    init_fields();
+    init_verify();
   }
 });
 
@@ -25099,42 +25770,42 @@ var init_schemas = __esm({
         }
         doc.write(`const newResult = {};`);
         for (const key of normalized.keys) {
-          const id = ids[key];
+          const id2 = ids[key];
           const k = esc(key);
           const schema = shape[key];
           const isOptionalIn = schema?._zod?.optin === "optional";
           const isOptionalOut = schema?._zod?.optout === "optional";
-          doc.write(`const ${id} = ${parseStr(key)};`);
+          doc.write(`const ${id2} = ${parseStr(key)};`);
           if (isOptionalIn && isOptionalOut) {
             doc.write(`
-        if (${id}.issues.length) {
+        if (${id2}.issues.length) {
           if (${k} in input) {
-            payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+            payload.issues = payload.issues.concat(${id2}.issues.map(iss => ({
               ...iss,
               path: iss.path ? [${k}, ...iss.path] : [${k}]
             })));
           }
         }
         
-        if (${id}.value === undefined) {
+        if (${id2}.value === undefined) {
           if (${k} in input) {
             newResult[${k}] = undefined;
           }
         } else {
-          newResult[${k}] = ${id}.value;
+          newResult[${k}] = ${id2}.value;
         }
         
       `);
           } else if (!isOptionalIn) {
             doc.write(`
-        const ${id}_present = ${k} in input;
-        if (${id}.issues.length) {
-          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+        const ${id2}_present = ${k} in input;
+        if (${id2}.issues.length) {
+          payload.issues = payload.issues.concat(${id2}.issues.map(iss => ({
             ...iss,
             path: iss.path ? [${k}, ...iss.path] : [${k}]
           })));
         }
-        if (!${id}_present && !${id}.issues.length) {
+        if (!${id2}_present && !${id2}.issues.length) {
           payload.issues.push({
             code: "invalid_type",
             expected: "nonoptional",
@@ -25143,30 +25814,30 @@ var init_schemas = __esm({
           });
         }
 
-        if (${id}_present) {
-          if (${id}.value === undefined) {
+        if (${id2}_present) {
+          if (${id2}.value === undefined) {
             newResult[${k}] = undefined;
           } else {
-            newResult[${k}] = ${id}.value;
+            newResult[${k}] = ${id2}.value;
           }
         }
 
       `);
           } else {
             doc.write(`
-        if (${id}.issues.length) {
-          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+        if (${id2}.issues.length) {
+          payload.issues = payload.issues.concat(${id2}.issues.map(iss => ({
             ...iss,
             path: iss.path ? [${k}, ...iss.path] : [${k}]
           })));
         }
         
-        if (${id}.value === undefined) {
+        if (${id2}.value === undefined) {
           if (${k} in input) {
             newResult[${k}] = undefined;
           }
         } else {
-          newResult[${k}] = ${id}.value;
+          newResult[${k}] = ${id2}.value;
         }
         
       `);
@@ -26518,26 +27189,26 @@ function extractDefs(ctx, schema) {
     throw new Error("Unprocessed schema. This is a bug in Zod.");
   const idToSchema = /* @__PURE__ */ new Map();
   for (const entry of ctx.seen.entries()) {
-    const id = ctx.metadataRegistry.get(entry[0])?.id;
-    if (id) {
-      const existing = idToSchema.get(id);
+    const id2 = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id2) {
+      const existing = idToSchema.get(id2);
       if (existing && existing !== entry[0]) {
-        throw new Error(`Duplicate schema id "${id}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
+        throw new Error(`Duplicate schema id "${id2}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
       }
-      idToSchema.set(id, entry[0]);
+      idToSchema.set(id2, entry[0]);
     }
   }
   const makeURI = (entry) => {
     const defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
     if (ctx.external) {
       const externalId = ctx.external.registry.get(entry[0])?.id;
-      const uriGenerator = ctx.external.uri ?? ((id2) => id2);
+      const uriGenerator = ctx.external.uri ?? ((id3) => id3);
       if (externalId) {
         return { ref: uriGenerator(externalId) };
       }
-      const id = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
-      entry[1].defId = id;
-      return { defId: id, ref: `${uriGenerator("__shared")}#/${defsSegment}/${id}` };
+      const id2 = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
+      entry[1].defId = id2;
+      return { defId: id2, ref: `${uriGenerator("__shared")}#/${defsSegment}/${id2}` };
     }
     if (entry[1] === root) {
       return { ref: "#" };
@@ -26585,8 +27256,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         continue;
       }
     }
-    const id = ctx.metadataRegistry.get(entry[0])?.id;
-    if (id) {
+    const id2 = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id2) {
       extractToDef(entry);
       continue;
     }
@@ -26682,10 +27353,10 @@ function finalize(ctx, schema) {
   } else {
   }
   if (ctx.external?.uri) {
-    const id = ctx.external.registry.get(schema)?.id;
-    if (!id)
+    const id2 = ctx.external.registry.get(schema)?.id;
+    if (!id2)
       throw new Error("Schema is missing an `id` property");
-    result.$id = ctx.external.uri(id);
+    result.$id = ctx.external.uri(id2);
   }
   Object.assign(result, root.def ?? root.schema);
   const rootMetaId = ctx.metadataRegistry.get(schema)?.id;
@@ -27508,7 +28179,7 @@ function intersection(left, right) {
     right
   });
 }
-function record(keyType, valueType, params) {
+function record2(keyType, valueType, params) {
   if (!valueType || !valueType._zod) {
     return new ZodRecord({
       type: "record",
@@ -28531,7 +29202,7 @@ var init_types = __esm({
     });
     FormElicitationCapabilitySchema = intersection(object2({
       applyDefaults: boolean2().optional()
-    }), record(string2(), unknown()));
+    }), record2(string2(), unknown()));
     ElicitationCapabilitySchema = preprocess((value) => {
       if (value && typeof value === "object" && !Array.isArray(value)) {
         if (Object.keys(value).length === 0) {
@@ -28542,7 +29213,7 @@ var init_types = __esm({
     }, intersection(object2({
       form: FormElicitationCapabilitySchema.optional(),
       url: AssertObjectSchema.optional()
-    }), record(string2(), unknown()).optional()));
+    }), record2(string2(), unknown()).optional()));
     ClientTasksCapabilitySchema = looseObject({
       /**
        * Present if the client supports listing tasks.
@@ -28595,7 +29266,7 @@ var init_types = __esm({
       /**
        * Experimental, non-standard capabilities that the client supports.
        */
-      experimental: record(string2(), AssertObjectSchema).optional(),
+      experimental: record2(string2(), AssertObjectSchema).optional(),
       /**
        * Present if the client supports sampling from an LLM.
        */
@@ -28630,7 +29301,7 @@ var init_types = __esm({
       /**
        * Extensions that the client supports. Keys are extension identifiers (vendor-prefix/extension-name).
        */
-      extensions: record(string2(), AssertObjectSchema).optional()
+      extensions: record2(string2(), AssertObjectSchema).optional()
     });
     InitializeRequestParamsSchema = BaseRequestParamsSchema.extend({
       /**
@@ -28649,7 +29320,7 @@ var init_types = __esm({
       /**
        * Experimental, non-standard capabilities that the server supports.
        */
-      experimental: record(string2(), AssertObjectSchema).optional(),
+      experimental: record2(string2(), AssertObjectSchema).optional(),
       /**
        * Present if the server supports sending log messages to the client.
        */
@@ -28696,7 +29367,7 @@ var init_types = __esm({
       /**
        * Extensions that the server supports. Keys are extension identifiers (vendor-prefix/extension-name).
        */
-      extensions: record(string2(), AssertObjectSchema).optional()
+      extensions: record2(string2(), AssertObjectSchema).optional()
     });
     InitializeResultSchema = ResultSchema.extend({
       /**
@@ -28834,7 +29505,7 @@ var init_types = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     TextResourceContentsSchema = ResourceContentsSchema.extend({
       /**
@@ -29028,7 +29699,7 @@ var init_types = __esm({
       /**
        * Arguments to use for templating the prompt.
        */
-      arguments: record(string2(), string2()).optional()
+      arguments: record2(string2(), string2()).optional()
     });
     GetPromptRequestSchema = RequestSchema.extend({
       method: literal("prompts/get"),
@@ -29048,7 +29719,7 @@ var init_types = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ImageContentSchema = object2({
       type: literal("image"),
@@ -29068,7 +29739,7 @@ var init_types = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     AudioContentSchema = object2({
       type: literal("audio"),
@@ -29088,7 +29759,7 @@ var init_types = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ToolUseContentSchema = object2({
       type: literal("tool_use"),
@@ -29106,12 +29777,12 @@ var init_types = __esm({
        * Arguments to pass to the tool.
        * Must conform to the tool's inputSchema.
        */
-      input: record(string2(), unknown()),
+      input: record2(string2(), unknown()),
       /**
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     EmbeddedResourceSchema = object2({
       type: literal("resource"),
@@ -29124,7 +29795,7 @@ var init_types = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ResourceLinkSchema = ResourceSchema.extend({
       type: literal("resource_link")
@@ -29214,7 +29885,7 @@ var init_types = __esm({
        */
       inputSchema: object2({
         type: literal("object"),
-        properties: record(string2(), AssertObjectSchema).optional(),
+        properties: record2(string2(), AssertObjectSchema).optional(),
         required: array(string2()).optional()
       }).catchall(unknown()),
       /**
@@ -29224,7 +29895,7 @@ var init_types = __esm({
        */
       outputSchema: object2({
         type: literal("object"),
-        properties: record(string2(), AssertObjectSchema).optional(),
+        properties: record2(string2(), AssertObjectSchema).optional(),
         required: array(string2()).optional()
       }).catchall(unknown()).optional(),
       /**
@@ -29239,7 +29910,7 @@ var init_types = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ListToolsRequestSchema = PaginatedRequestSchema.extend({
       method: literal("tools/list")
@@ -29260,7 +29931,7 @@ var init_types = __esm({
        *
        * If the Tool defines an outputSchema, this field MUST be present in the result, and contain a JSON object that matches the schema.
        */
-      structuredContent: record(string2(), unknown()).optional(),
+      structuredContent: record2(string2(), unknown()).optional(),
       /**
        * Whether the tool call ended in an error.
        *
@@ -29288,7 +29959,7 @@ var init_types = __esm({
       /**
        * Arguments to pass to the tool.
        */
-      arguments: record(string2(), unknown()).optional()
+      arguments: record2(string2(), unknown()).optional()
     });
     CallToolRequestSchema = RequestSchema.extend({
       method: literal("tools/call"),
@@ -29390,7 +30061,7 @@ var init_types = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     SamplingContentSchema = discriminatedUnion("type", [TextContentSchema, ImageContentSchema, AudioContentSchema]);
     SamplingMessageContentBlockSchema = discriminatedUnion("type", [
@@ -29407,7 +30078,7 @@ var init_types = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     CreateMessageRequestParamsSchema = TaskAugmentedRequestParamsSchema.extend({
       messages: array(SamplingMessageSchema),
@@ -29595,7 +30266,7 @@ var init_types = __esm({
        */
       requestedSchema: object2({
         type: literal("object"),
-        properties: record(string2(), PrimitiveSchemaDefinitionSchema),
+        properties: record2(string2(), PrimitiveSchemaDefinitionSchema),
         required: array(string2()).optional()
       })
     });
@@ -29647,7 +30318,7 @@ var init_types = __esm({
        * Per MCP spec, content is "typically omitted" for decline/cancel actions.
        * We normalize null to undefined for leniency while maintaining type compatibility.
        */
-      content: preprocess((val) => val === null ? void 0 : val, record(string2(), union([string2(), number2(), boolean2(), array(string2())])).optional())
+      content: preprocess((val) => val === null ? void 0 : val, record2(string2(), union([string2(), number2(), boolean2(), array(string2())])).optional())
     });
     ResourceTemplateReferenceSchema = object2({
       type: literal("ref/resource"),
@@ -29682,7 +30353,7 @@ var init_types = __esm({
         /**
          * Previously-resolved variables in a URI template or prompt.
          */
-        arguments: record(string2(), string2()).optional()
+        arguments: record2(string2(), string2()).optional()
       }).optional()
     });
     CompleteRequestSchema = RequestSchema.extend({
@@ -29718,7 +30389,7 @@ var init_types = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ListRootsRequestSchema = RequestSchema.extend({
       method: literal("roots/list"),
@@ -33385,10 +34056,10 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id = "", normalize) {
+    function getFullPath(resolver, id2 = "", normalize) {
       if (normalize !== false)
-        id = normalizeId(id);
-      const p = resolver.parse(id);
+        id2 = normalizeId(id2);
+      const p = resolver.parse(id2);
       return _getFullPath(resolver, p);
     }
     exports.getFullPath = getFullPath;
@@ -33398,13 +34069,13 @@ var require_resolve = __commonJS({
     }
     exports._getFullPath = _getFullPath;
     var TRAILING_SLASH_HASH = /#\/?$/;
-    function normalizeId(id) {
-      return id ? id.replace(TRAILING_SLASH_HASH, "") : "";
+    function normalizeId(id2) {
+      return id2 ? id2.replace(TRAILING_SLASH_HASH, "") : "";
     }
     exports.normalizeId = normalizeId;
-    function resolveUrl(resolver, baseId, id) {
-      id = normalizeId(id);
-      return resolver.resolve(baseId, id);
+    function resolveUrl(resolver, baseId, id2) {
+      id2 = normalizeId(id2);
+      return resolver.resolve(baseId, id2);
     }
     exports.resolveUrl = resolveUrl;
     var ANCHOR = /^[a-z_][-a-z0-9._]*$/i;
@@ -34174,8 +34845,8 @@ var require_compile = __commonJS({
       if (Object.keys(root.schema).length > 0 && refPath === baseId) {
         return getJsonPointer.call(this, p, root);
       }
-      const id = (0, resolve_1.normalizeId)(refPath);
-      const schOrRef = this.refs[id] || this.schemas[id];
+      const id2 = (0, resolve_1.normalizeId)(refPath);
+      const schOrRef = this.refs[id2] || this.schemas[id2];
       if (typeof schOrRef == "string") {
         const sch = resolveSchema.call(this, root, schOrRef);
         if (typeof (sch === null || sch === void 0 ? void 0 : sch.schema) !== "object")
@@ -34186,7 +34857,7 @@ var require_compile = __commonJS({
         return;
       if (!schOrRef.validate)
         compileSchema.call(this, schOrRef);
-      if (id === (0, resolve_1.normalizeId)(ref)) {
+      if (id2 === (0, resolve_1.normalizeId)(ref)) {
         const { schema } = schOrRef;
         const { schemaId } = this.opts;
         const schId = schema[schemaId];
@@ -35303,15 +35974,15 @@ var require_core = __commonJS({
             this.addSchema(sch, void 0, _meta, _validateSchema);
           return this;
         }
-        let id;
+        let id2;
         if (typeof schema === "object") {
           const { schemaId } = this.opts;
-          id = schema[schemaId];
-          if (id !== void 0 && typeof id != "string") {
+          id2 = schema[schemaId];
+          if (id2 !== void 0 && typeof id2 != "string") {
             throw new Error(`schema ${schemaId} must be string`);
           }
         }
-        key = (0, resolve_1.normalizeId)(key || id);
+        key = (0, resolve_1.normalizeId)(key || id2);
         this._checkUnique(key);
         this.schemas[key] = this._addSchema(schema, _meta, key, _validateSchema, true);
         return this;
@@ -35390,11 +36061,11 @@ var require_core = __commonJS({
           case "object": {
             const cacheKey2 = schemaKeyRef;
             this._cache.delete(cacheKey2);
-            let id = schemaKeyRef[this.opts.schemaId];
-            if (id) {
-              id = (0, resolve_1.normalizeId)(id);
-              delete this.schemas[id];
-              delete this.refs[id];
+            let id2 = schemaKeyRef[this.opts.schemaId];
+            if (id2) {
+              id2 = (0, resolve_1.normalizeId)(id2);
+              delete this.schemas[id2];
+              delete this.refs[id2];
             }
             return this;
           }
@@ -35501,10 +36172,10 @@ var require_core = __commonJS({
         }
       }
       _addSchema(schema, meta2, baseId, validateSchema = this.opts.validateSchema, addSchema = this.opts.addUsedSchema) {
-        let id;
+        let id2;
         const { schemaId } = this.opts;
         if (typeof schema == "object") {
-          id = schema[schemaId];
+          id2 = schema[schemaId];
         } else {
           if (this.opts.jtd)
             throw new Error("schema must be object");
@@ -35514,7 +36185,7 @@ var require_core = __commonJS({
         let sch = this._cache.get(schema);
         if (sch !== void 0)
           return sch;
-        baseId = (0, resolve_1.normalizeId)(id || baseId);
+        baseId = (0, resolve_1.normalizeId)(id2 || baseId);
         const localRefs = resolve_1.getSchemaRefs.call(this, schema, baseId);
         sch = new compile_1.SchemaEnv({ schema, schemaId, meta: meta2, baseId, localRefs });
         this._cache.set(sch.schema, sch);
@@ -35527,9 +36198,9 @@ var require_core = __commonJS({
           this.validateSchema(schema, true);
         return sch;
       }
-      _checkUnique(id) {
-        if (this.schemas[id] || this.refs[id]) {
-          throw new Error(`schema with key or id "${id}" already exists`);
+      _checkUnique(id2) {
+        if (this.schemas[id2] || this.refs[id2]) {
+          throw new Error(`schema with key or id "${id2}" already exists`);
         }
       }
       _compileSchemaEnv(sch) {
@@ -38204,7 +38875,7 @@ var init_server = __esm({
           if (hasPreviousToolUse) {
             const toolUseIds = new Set(previousContent.filter((c) => c.type === "tool_use").map((c) => c.id));
             const toolResultIds = new Set(lastContent.filter((c) => c.type === "tool_result").map((c) => c.toolUseId));
-            if (toolUseIds.size !== toolResultIds.size || ![...toolUseIds].every((id) => toolResultIds.has(id))) {
+            if (toolUseIds.size !== toolResultIds.size || ![...toolUseIds].every((id2) => toolResultIds.has(id2))) {
               throw new Error("ids of tool_result blocks and tool_use blocks from previous message do not match");
             }
           }
@@ -38653,7 +39324,7 @@ var init_server2 = __esm({
           if (hasPreviousToolUse) {
             const toolUseIds = new Set(previousContent.filter((c) => c.type === "tool_use").map((c) => c.id));
             const toolResultIds = new Set(lastContent.filter((c) => c.type === "tool_result").map((c) => c.toolUseId));
-            if (toolUseIds.size !== toolResultIds.size || ![...toolUseIds].every((id) => toolResultIds.has(id))) {
+            if (toolUseIds.size !== toolResultIds.size || ![...toolUseIds].every((id2) => toolResultIds.has(id2))) {
               throw new Error("ids of tool_result blocks and tool_use blocks from previous message do not match");
             }
           }
@@ -40064,8 +40735,8 @@ data:
         }
         if (isJSONRPCResultResponse(message) || isJSONRPCErrorResponse(message)) {
           this._requestResponseMap.set(requestId, message);
-          const relatedIds = Array.from(this._requestToStreamMapping.entries()).filter(([_, sid]) => sid === streamId).map(([id]) => id);
-          const allResponsesReady = relatedIds.every((id) => this._requestResponseMap.has(id));
+          const relatedIds = Array.from(this._requestToStreamMapping.entries()).filter(([_, sid]) => sid === streamId).map(([id2]) => id2);
+          const allResponsesReady = relatedIds.every((id2) => this._requestResponseMap.has(id2));
           if (allResponsesReady) {
             if (!stream) {
               throw new Error(`No connection established for request ID: ${String(requestId)}`);
@@ -40077,7 +40748,7 @@ data:
               if (this.sessionId !== void 0) {
                 headers["mcp-session-id"] = this.sessionId;
               }
-              const responses = relatedIds.map((id) => this._requestResponseMap.get(id));
+              const responses = relatedIds.map((id2) => this._requestResponseMap.get(id2));
               if (responses.length === 1) {
                 stream.resolveJson(new Response(JSON.stringify(responses[0]), { status: 200, headers }));
               } else {
@@ -40086,9 +40757,9 @@ data:
             } else {
               stream.cleanup();
             }
-            for (const id of relatedIds) {
-              this._requestResponseMap.delete(id);
-              this._requestToStreamMapping.delete(id);
+            for (const id2 of relatedIds) {
+              this._requestResponseMap.delete(id2);
+              this._requestToStreamMapping.delete(id2);
             }
           }
         }
@@ -42912,7 +43583,7 @@ init_config();
 init_errors();
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 function configGuidance() {
   return [
     "coolify-mcp is not configured yet.",
@@ -42926,13 +43597,32 @@ function configGuidance() {
     "Docs: https://github.com/jimrarras/coolify-mcp#configuration"
   ].join("\n");
 }
+var KNOWN_SUBCOMMANDS = /* @__PURE__ */ new Set(["doctor", "init", "instances"]);
 async function dispatch2(argv, deps) {
   const sub = argv[0];
   const rest = argv.slice(1);
   const env = process.env;
+  const { defaultPalette: defaultPalette2, paintLine: paintLine2 } = await Promise.resolve().then(() => (init_ansi(), ansi_exports));
+  const palette = defaultPalette2();
+  const out = deps?.out ?? ((l) => process.stdout.write(paintLine2(l, palette) + "\n"));
+  if (sub === "--help" || sub === "-h" || sub === "help") {
+    const { helpText: helpText2 } = await Promise.resolve().then(() => (init_help(), help_exports));
+    out(helpText2(sub === "help" ? rest[0] : void 0));
+    return 0;
+  }
+  if (sub === "--version") {
+    const { getVersion: getVersion2 } = await Promise.resolve().then(() => (init_help(), help_exports));
+    out(getVersion2());
+    return 0;
+  }
+  if (KNOWN_SUBCOMMANDS.has(sub ?? "") && (rest.includes("--help") || rest.includes("-h"))) {
+    const { helpText: helpText2 } = await Promise.resolve().then(() => (init_help(), help_exports));
+    out(helpText2(sub));
+    return 0;
+  }
   if (sub === "doctor") {
     const runDoctor2 = deps?.runDoctor ?? (await Promise.resolve().then(() => (init_doctor(), doctor_exports))).runDoctor;
-    return runDoctor2(rest, env, (l) => process.stdout.write(l + "\n"));
+    return runDoctor2(rest, env, out);
   }
   if (sub === "init") {
     const runInit2 = deps?.runInit ?? (await Promise.resolve().then(() => (init_init(), init_exports))).runInit;
@@ -42940,7 +43630,7 @@ async function dispatch2(argv, deps) {
   }
   if (sub === "instances") {
     const runInstances2 = deps?.runInstances ?? (await Promise.resolve().then(() => (init_instances(), instances_exports))).runInstances;
-    return runInstances2(rest, env, (l) => process.stdout.write(l + "\n"));
+    return runInstances2(rest, env, out);
   }
   const runServer = deps?.runServer ?? (await Promise.resolve().then(() => (init_server3(), server_exports))).main;
   try {
@@ -42961,7 +43651,7 @@ async function dispatch2(argv, deps) {
 }
 function isMainModule(metaUrl, argv1) {
   if (!argv1) return false;
-  const modulePath = fileURLToPath(metaUrl);
+  const modulePath = fileURLToPath2(metaUrl);
   try {
     return realpathSync.native(modulePath) === realpathSync.native(argv1);
   } catch {

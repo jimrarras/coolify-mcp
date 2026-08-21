@@ -250,11 +250,32 @@ existing one; your other instances are left untouched).
 coolify-mcp instances                 # list configured instances (* = default); never prints secrets
 coolify-mcp instances default <name>  # set the default instance
 coolify-mcp instances rm <name>       # remove an instance (alias: `remove`)
+coolify-mcp instances edit <name>     # interactive edit — Enter keeps each current value
+coolify-mcp instances set <name> <field> [value]   # one-shot field edit (see fields below)
+coolify-mcp instances unset <name> <field>         # clear an optional field, or a whole ssh/db block
 ```
 
 `instances rm` refuses to remove the only instance, and refuses to remove the current default while
 several remain (set a new default first with `instances default <name>`); removing the default when a
 single instance is left auto-promotes the survivor.
+
+**Editing an instance.** `instances set` accepts these fields: `baseUrl`, `token`, `enableHostOps`,
+`allowDestructive`, `pinnedCoolifyVersion`, `ssh.keyPath`, `ssh.host`, `ssh.hostServer`, `ssh.user`,
+`ssh.port`, `ssh.fingerprint`, `ssh.knownHostsPath`, `ssh.passphrase`, `db.readonlyUser`,
+`db.readonlyPassword`. Omit the value for a secret field (`token`, `ssh.passphrase`,
+`db.readonlyPassword`) to be prompted with hidden input — keeps the secret out of shell history:
+
+```bash
+coolify-mcp instances set prod allowDestructive on
+coolify-mcp instances set prod token              # prompts hidden — token rotation in one line
+coolify-mcp instances unset prod ssh              # drop host-ops SSH config entirely
+```
+
+After every change the instance is re-verified (API health always, SSH when ssh fields changed);
+skip with `--no-verify`. `set`/`unset` keep the write on a failed verification and point at the
+`.bak` backup; `instances edit` verifies changed credentials *before* writing and aborts untouched
+on failure. Values stored as `${ENV}` references are shown and preserved verbatim — editing never
+silently inlines a referenced secret. Run `coolify-mcp help instances` for the full reference.
 
 ### 6. CLI flags + back-compat
 

@@ -44,6 +44,8 @@ async function getRl(): Promise<import("node:readline/promises").Interface> {
   return _rl;
 }
 
+import { defaultPalette, paintLine } from "./ansi.js";
+
 export const defaultIO: IO = {
   async prompt(q, def) {
     const i = await getRl();
@@ -62,6 +64,6 @@ export const defaultIO: IO = {
     if (a === "") return def;
     return a === "y" || a === "yes";
   },
-  print(s) { process.stdout.write(s + "\n"); },
+  print(s) { process.stdout.write(paintLine(s, defaultPalette()) + "\n"); },
   close() { _rl?.close(); _rl = undefined; },
 };
