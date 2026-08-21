@@ -85,3 +85,73 @@ describe("configGuidance", () => {
     expect(g).toContain("config.json");
   });
 });
+
+describe("isMainModule", () => {
+  it("is exported and detects a direct-path invocation", async () => {
+    const { isMainModule } = await import("./index.js");
+    const os = await import("node:os");
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { pathToFileURL } = await import("node:url");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cmcp-ismain-"));
+    try {
+      const entry = path.join(dir, "index.js");
+      fs.writeFileSync(entry, "// entry\n");
+      // Node realpaths the loaded module, so metaUrl is always the real path.
+      expect(isMainModule(pathToFileURL(entry).href, entry)).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("detects invocation through a junction/symlinked directory (npm link-style install)", async () => {
+    const { isMainModule } = await import("./index.js");
+    const os = await import("node:os");
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { pathToFileURL } = await import("node:url");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cmcp-ismain-"));
+    try {
+      const realDir = path.join(dir, "real");
+      fs.mkdirSync(realDir);
+      const entry = path.join(realDir, "index.js");
+      fs.writeFileSync(entry, "// entry\n");
+      const linkDir = path.join(dir, "link");
+      fs.symlinkSync(realDir, linkDir, "junction"); // junction: no admin needed on Windows
+      const argvPath = path.join(linkDir, "index.js");
+      // metaUrl resolves through the REAL path (Node realpaths the main module);
+      // argv[1] is the symlinked path the shim invoked. These must still match.
+      expect(isMainModule(pathToFileURL(entry).href, argvPath)).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns false for a different script and for missing argv[1]", async () => {
+    const { isMainModule } = await import("./index.js");
+    const os = await import("node:os");
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { pathToFileURL } = await import("node:url");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cmcp-ismain-"));
+    try {
+      const a = path.join(dir, "a.js");
+      const b = path.join(dir, "b.js");
+      fs.writeFileSync(a, "");
+      fs.writeFileSync(b, "");
+      expect(isMainModule(pathToFileURL(a).href, b)).toBe(false);
+      expect(isMainModule(pathToFileURL(a).href, undefined)).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to a plain path comparison when the path cannot be realpathed", async () => {
+    const { isMainModule } = await import("./index.js");
+    const { pathToFileURL } = await import("node:url");
+    // Nonexistent path: realpath throws, but an exact textual match must still count.
+    const ghost = "C:/nonexistent-cmcp-dir/index.js";
+    expect(isMainModule(pathToFileURL(ghost).href, ghost)).toBe(true);
+    expect(isMainModule(pathToFileURL(ghost).href, "C:/other/index.js")).toBe(false);
+  });
+});

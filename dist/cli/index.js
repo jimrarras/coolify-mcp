@@ -7693,7 +7693,7 @@ var require_crypto = __commonJS({
       MAC_INFO,
       bindingAvailable: !!binding,
       init: (() => {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async (resolve2, reject) => {
           try {
             POLY1305_WASM_MODULE = await require_poly1305()();
             POLY1305_RESULT_MALLOC = POLY1305_WASM_MODULE._malloc(16);
@@ -7705,7 +7705,7 @@ var require_crypto = __commonJS({
           } catch (ex) {
             return reject(ex);
           }
-          resolve();
+          resolve2();
         });
       })(),
       NullCipher,
@@ -8963,7 +8963,7 @@ var require_agent = __commonJS({
     "use strict";
     var { Socket } = __require("net");
     var { Duplex } = __require("stream");
-    var { resolve } = __require("path");
+    var { resolve: resolve2 } = __require("path");
     var { readFile } = __require("fs");
     var { execFile, spawn } = __require("child_process");
     var { isParsedKey, parseKey } = require_keyParser();
@@ -9099,7 +9099,7 @@ var require_agent = __commonJS({
       const RET_ERR_BINSTDIN = 13;
       const RET_ERR_BINSTDOUT = 14;
       const RET_ERR_BADLEN = 15;
-      const EXEPATH = resolve(__dirname, "..", "util/pagent.exe");
+      const EXEPATH = resolve2(__dirname, "..", "util/pagent.exe");
       const ERROR = {
         [RET_ERR_BADARGS]: new Error("Invalid pagent.exe arguments"),
         [RET_ERR_UNAVAILABLE]: new Error("Pageant is not running"),
@@ -21403,11 +21403,11 @@ var init_client2 = __esm({
         this.cfg = cfg;
       }
       connect() {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           const conn = new import_ssh2.Client();
           conn.on("ready", () => {
             this.conn = conn;
-            resolve();
+            resolve2();
           });
           conn.on("error", (err2) => {
             reject(err2);
@@ -21435,7 +21435,7 @@ var init_client2 = __esm({
         const conn = this._requireConn();
         const maxOutputBytes = opts?.maxOutputBytes;
         const timeoutMs = opts?.timeoutMs;
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           conn.exec(command, (err2, stream) => {
             if (err2) {
               reject(err2);
@@ -21479,7 +21479,7 @@ var init_client2 = __esm({
             stream.on("data", (data) => onChunk(data, false));
             stream.stderr.on("data", (data) => onChunk(data, true));
             stream.on("close", (code) => {
-              settle(() => resolve({ code: code ?? -1, stdout, stderr }), false);
+              settle(() => resolve2({ code: code ?? -1, stdout, stderr }), false);
             });
             if (stdin !== void 0) {
               stream.end(stdin);
@@ -21489,7 +21489,7 @@ var init_client2 = __esm({
       }
       streamExec(command, onLine, signal) {
         const conn = this._requireConn();
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           conn.exec(command, (err2, stream) => {
             if (err2) {
               reject(err2);
@@ -21512,7 +21512,7 @@ var init_client2 = __esm({
                 onLine(buffer);
                 buffer = "";
               }
-              resolve({ code });
+              resolve2({ code });
             });
             const abortHandler = () => {
               try {
@@ -21542,7 +21542,7 @@ var init_client2 = __esm({
        */
       readFile(path, allowedPrefixes) {
         const conn = this._requireConn();
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           conn.sftp((err2, sftp) => {
             if (err2) {
               reject(err2);
@@ -21576,7 +21576,7 @@ var init_client2 = __esm({
                     );
                     return;
                   }
-                  resolve(data.toString("utf8"));
+                  resolve2(data.toString("utf8"));
                 });
               });
             };
@@ -21606,12 +21606,12 @@ var init_client2 = __esm({
         });
       }
       close() {
-        return new Promise((resolve) => {
+        return new Promise((resolve2) => {
           if (this.conn) {
             this.conn.end();
             this.conn = null;
           }
-          resolve();
+          resolve2();
         });
       }
       _requireConn() {
@@ -30746,7 +30746,7 @@ var init_protocol = __esm({
               return;
             }
             const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-            await new Promise((resolve) => setTimeout(resolve, pollInterval));
+            await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
             options?.signal?.throwIfAborted();
           }
         } catch (error2) {
@@ -30763,7 +30763,7 @@ var init_protocol = __esm({
        */
       request(request, resultSchema, options) {
         const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           const earlyReject = (error2) => {
             reject(error2);
           };
@@ -30841,7 +30841,7 @@ var init_protocol = __esm({
               if (!parseResult.success) {
                 reject(parseResult.error);
               } else {
-                resolve(parseResult.data);
+                resolve2(parseResult.data);
               }
             } catch (error2) {
               reject(error2);
@@ -31102,12 +31102,12 @@ var init_protocol = __esm({
           }
         } catch {
         }
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           if (signal.aborted) {
             reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
             return;
           }
-          const timeoutId = setTimeout(resolve, interval);
+          const timeoutId = setTimeout(resolve2, interval);
           signal.addEventListener("abort", () => {
             clearTimeout(timeoutId);
             reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -34134,7 +34134,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve.call(this, root, ref);
+      let _sch = resolve2.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -34161,7 +34161,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve(root, ref) {
+    function resolve2(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -34792,7 +34792,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve(baseURI, relativeURI, options) {
+    function resolve2(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -35050,7 +35050,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve,
+      resolve: resolve2,
       resolveComponent,
       equal,
       serialize,
@@ -38850,12 +38850,12 @@ var init_stdio2 = __esm({
         this.onclose?.();
       }
       send(message) {
-        return new Promise((resolve) => {
+        return new Promise((resolve2) => {
           const json = serializeMessage(message);
           if (this._stdout.write(json)) {
-            resolve();
+            resolve2();
           } else {
-            this._stdout.once("drain", resolve);
+            this._stdout.once("drain", resolve2);
           }
         });
       }
@@ -39359,7 +39359,7 @@ var init_dist = __esm({
             });
             if (!chunk) {
               if (i === 1) {
-                await new Promise((resolve) => setTimeout(resolve));
+                await new Promise((resolve2) => setTimeout(resolve2));
                 maxReadCount = 3;
                 continue;
               }
@@ -39865,9 +39865,9 @@ data:
           const initRequest = messages.find((m) => isInitializeRequest(m));
           const clientProtocolVersion = initRequest ? initRequest.params.protocolVersion : req.headers.get("mcp-protocol-version") ?? DEFAULT_NEGOTIATED_PROTOCOL_VERSION;
           if (this._enableJsonResponse) {
-            return new Promise((resolve) => {
+            return new Promise((resolve2) => {
               this._streamMapping.set(streamId, {
-                resolveJson: resolve,
+                resolveJson: resolve2,
                 cleanup: () => {
                   this._streamMapping.delete(streamId);
                 }
@@ -42839,7 +42839,7 @@ async function startHttp(registry2, tools, cfg) {
       }
     });
   });
-  await new Promise((resolve) => httpServer.listen(cfg.port, cfg.host, resolve));
+  await new Promise((resolve2) => httpServer.listen(cfg.port, cfg.host, resolve2));
   process.stderr.write(
     `[coolify-mcp] HTTP transport on http://${cfg.host}:${cfg.port} (API tier only \u2014 host-ops is never exposed over HTTP)
 `
@@ -42910,6 +42910,9 @@ var init_server3 = __esm({
 // src/cli/index.ts
 init_config();
 init_errors();
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 function configGuidance() {
   return [
     "coolify-mcp is not configured yet.",
@@ -42956,8 +42959,17 @@ async function dispatch2(argv, deps) {
     throw e;
   }
 }
-var isMain = process.argv[1] ? new URL(import.meta.url).pathname === new URL(`file://${process.argv[1].replace(/\\/g, "/")}`).pathname : false;
-if (isMain) {
+function isMainModule(metaUrl, argv1) {
+  if (!argv1) return false;
+  const modulePath = fileURLToPath(metaUrl);
+  try {
+    return realpathSync.native(modulePath) === realpathSync.native(argv1);
+  } catch {
+    const norm = (p) => resolve(p).replace(/\\/g, "/").toLowerCase();
+    return norm(modulePath) === norm(argv1);
+  }
+}
+if (isMainModule(import.meta.url, process.argv[1])) {
   dispatch2(process.argv.slice(2)).then(
     (code) => {
       if (code) process.exit(code);
@@ -42971,5 +42983,6 @@ if (isMain) {
 }
 export {
   configGuidance,
-  dispatch2 as dispatch
+  dispatch2 as dispatch,
+  isMainModule
 };

@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isMissingConfigError } from "../core/config.js";
 import { CoolifyError } from "../core/errors.js";
 
@@ -65,11 +68,29 @@ export async function dispatch(argv: string[], deps?: Partial<DispatchDeps>): Pr
   }
 }
 
+/**
+ * Is this module the process entry point? Robust to symlink/junction installs
+ * (npm link, `npm install -g .` on Windows): Node realpaths the loaded module,
+ * so `import.meta.url` points at the real file while argv[1] may be the linked
+ * path — realpath both sides before comparing. Getting this wrong is fatal in
+ * the worst way: the CLI exits 0 having done nothing.
+ */
+export function isMainModule(metaUrl: string, argv1: string | undefined): boolean {
+  if (!argv1) return false;
+  const modulePath = fileURLToPath(metaUrl);
+  try {
+    // .native canonicalizes case and 8.3 short names on Windows too.
+    return realpathSync.native(modulePath) === realpathSync.native(argv1);
+  } catch {
+    // realpath failed (path vanished, EPERM, …) — fall back to a normalized
+    // textual comparison so a direct invocation still starts the server.
+    const norm = (p: string) => resolve(p).replace(/\\/g, "/").toLowerCase();
+    return norm(modulePath) === norm(argv1);
+  }
+}
+
 // Entry point (ignored by tests, which import { dispatch }).
-const isMain = process.argv[1]
-  ? new URL(import.meta.url).pathname === new URL(`file://${process.argv[1].replace(/\\/g, "/")}`).pathname
-  : false;
-if (isMain) {
+if (isMainModule(import.meta.url, process.argv[1])) {
   dispatch(process.argv.slice(2)).then(
     (code) => { if (code) process.exit(code); },
     (e) => { process.stderr.write(`[coolify-mcp] fatal: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}\n`); process.exit(1); },
