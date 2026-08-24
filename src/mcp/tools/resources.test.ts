@@ -96,6 +96,34 @@ describe("list_resources", () => {
     expect(resources[0].uuid).toBe("abc123");
   });
 
+  // Regression (found live against Coolify 4.3.10): /resources rows carry
+  // singular/specific type values ("application", "service", "standalone-*"),
+  // so the plural enum filter must map to them instead of comparing literally
+  // (which silently returned an empty list for every filtered call).
+  it("maps the plural type filter onto live singular/standalone-* row types", async () => {
+    const raw = [
+      { uuid: "app1", name: "myapp", status: "running", type: "application", server_uuid: "srv1" },
+      { uuid: "svc1", name: "minio", status: "running", type: "service", server_uuid: "srv1" },
+      { uuid: "pg1", name: "POSTGRES", status: "running", type: "standalone-postgresql", server_uuid: "srv1" },
+      { uuid: "rd1", name: "Redis", status: "running", type: "standalone-redis", server_uuid: "srv1" },
+    ];
+    const tool = findTool("list_resources");
+
+    const cases: [string, string[]][] = [
+      ["applications", ["app1"]],
+      ["services", ["svc1"]],
+      ["databases", ["pg1", "rd1"]],
+    ];
+    for (const [filter, expected] of cases) {
+      const ctx = makeCtx();
+      (ctx.api.resources as ReturnType<typeof vi.fn>).mockResolvedValueOnce(raw);
+      const result = await tool.handler({ type: filter }, ctx);
+      expect(result.status).toBe("ok");
+      const resources = (result as Record<string, unknown>).resources as Record<string, unknown>[];
+      expect(resources.map((r) => r.uuid)).toEqual(expected);
+    }
+  });
+
   it("returns error when api.resources() throws", async () => {
     const ctx = makeCtx();
     (ctx.api.resources as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network fail"));

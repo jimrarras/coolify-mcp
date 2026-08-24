@@ -22,12 +22,28 @@ const DB_ENGINES: DbEngine[] = [
   "postgresql", "mysql", "mariadb", "mongodb", "redis", "keydb", "dragonfly", "clickhouse",
 ];
 
+// Live /resources rows carry singular/specific `type` values — "application",
+// "service", "standalone-postgresql", ... (confirmed against Coolify 4.3.10) —
+// while the tool's filter enum is plural. Map the filter to the live values;
+// also accept an exact match so enum-shaped rows (mocks, other versions) pass.
+const matchesTypeFilter = (rowType: unknown, filter: string): boolean => {
+  if (typeof rowType !== "string") return false;
+  if (rowType === filter) return true;
+  switch (filter) {
+    case "applications": return rowType === "application";
+    case "services": return rowType === "service";
+    case "databases":
+      return rowType.startsWith("standalone-") || DB_ENGINES.includes(rowType as DbEngine);
+    default: return false;
+  }
+};
+
 const listResourcesHandler: ToolHandler = async (args, ctx) => {
   try {
     const raw = await ctx.api.resources();
     const typeFilter = typeof args.type === "string" ? args.type : undefined;
     const filtered = typeFilter
-      ? raw.filter((r) => (r as Record<string, unknown>).type === typeFilter)
+      ? raw.filter((r) => matchesTypeFilter((r as Record<string, unknown>).type, typeFilter))
       : raw;
     const projected = projectList(
       filtered as Record<string, unknown>[],

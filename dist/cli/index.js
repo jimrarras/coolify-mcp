@@ -437,7 +437,7 @@ import { readFileSync as readFileSync2 } from "node:fs";
 import { join as join2, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 function getVersion() {
-  if (true) return "0.4.1";
+  if (true) return "0.4.2";
   const here = dirname(fileURLToPath(import.meta.url));
   const pkg = JSON.parse(readFileSync2(join2(here, "..", "..", "package.json"), "utf8"));
   return pkg.version;
@@ -41523,7 +41523,7 @@ var init_resource_clients = __esm({
 });
 
 // src/mcp/tools/resources.ts
-var RESOURCE_LIST_FIELDS, DB_ENGINES, listResourcesHandler, getResourceHandler, createResourceHandler, VALID_CONTROL_ACTIONS, updateResourceHandler, controlResourceHandler, deleteResourceHandler, TOOLS2;
+var RESOURCE_LIST_FIELDS, DB_ENGINES, matchesTypeFilter, listResourcesHandler, getResourceHandler, createResourceHandler, VALID_CONTROL_ACTIONS, updateResourceHandler, controlResourceHandler, deleteResourceHandler, TOOLS2;
 var init_resources = __esm({
   "src/mcp/tools/resources.ts"() {
     "use strict";
@@ -41545,11 +41545,25 @@ var init_resources = __esm({
       "dragonfly",
       "clickhouse"
     ];
+    matchesTypeFilter = (rowType, filter) => {
+      if (typeof rowType !== "string") return false;
+      if (rowType === filter) return true;
+      switch (filter) {
+        case "applications":
+          return rowType === "application";
+        case "services":
+          return rowType === "service";
+        case "databases":
+          return rowType.startsWith("standalone-") || DB_ENGINES.includes(rowType);
+        default:
+          return false;
+      }
+    };
     listResourcesHandler = async (args, ctx) => {
       try {
         const raw = await ctx.api.resources();
         const typeFilter = typeof args.type === "string" ? args.type : void 0;
-        const filtered = typeFilter ? raw.filter((r) => r.type === typeFilter) : raw;
+        const filtered = typeFilter ? raw.filter((r) => matchesTypeFilter(r.type, typeFilter)) : raw;
         const projected = projectList(
           filtered,
           RESOURCE_LIST_FIELDS
