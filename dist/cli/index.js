@@ -437,7 +437,7 @@ import { readFileSync as readFileSync2 } from "node:fs";
 import { join as join2, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 function getVersion() {
-  if (true) return "0.4.0";
+  if (true) return "0.4.1";
   const here = dirname(fileURLToPath(import.meta.url));
   const pkg = JSON.parse(readFileSync2(join2(here, "..", "..", "package.json"), "utf8"));
   return pkg.version;
@@ -818,9 +818,8 @@ var init_deployments = __esm({
       client;
       async trigger(params) {
         const raw = await this.client.request("/deploy", {
-          query: params,
-          // /deploy is a side-effecting GET — never auto-retry it (would duplicate deploys).
-          idempotent: false
+          method: "POST",
+          query: params
         });
         if (raw && typeof raw === "object" && Array.isArray(raw.deployments)) {
           return raw.deployments;

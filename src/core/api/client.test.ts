@@ -129,15 +129,15 @@ describe("CoolifyApiClient.request", () => {
     );
   });
 
-  it("does NOT retry a GET marked idempotent:false (side-effecting /deploy) on a 5xx", async () => {
-    // /deploy is a side-effecting GET; retrying it would queue duplicate deployments.
+  it("does NOT retry a GET marked idempotent:false (side-effecting GET override) on a 5xx", async () => {
+    // Retrying a side-effecting GET would duplicate the side effect server-side.
     let calls = 0;
     globalThis.fetch = vi.fn(async () => {
       calls++;
       return new Response(JSON.stringify({ message: "boom" }), { status: 503, headers: { "content-type": "application/json" } });
     }) as typeof globalThis.fetch;
     const client = new CoolifyApiClient(BASE_CFG, { maxAttempts: 4, baseDelayMs: 0, sleep: async () => {} });
-    await expect(client.request("/deploy", { idempotent: false })).rejects.toThrow(CoolifyError);
+    await expect(client.request("/side-effecting-get", { idempotent: false })).rejects.toThrow(CoolifyError);
     expect(calls).toBe(1);
   });
 

@@ -36,12 +36,17 @@ export class DeploymentsApi {
   constructor(private readonly client: CoolifyApiClient) {}
 
   async trigger(params: { uuid?: string; tag?: string; force?: boolean; pr?: number }): Promise<DeployTriggerResult[]> {
+    // POST /deploy — Coolify dropped the GET route in 4.2.0 (GET has 405'd since;
+    // confirmed live against 4.3.10). POST is accepted on every supported version:
+    // 4.1.x registered Route::match(['get','post']). Params stay in the query
+    // string — the controller reads $request->input(), which merges query + body.
+    // POST is non-idempotent by default, so a transient 5xx is never auto-retried
+    // (a retry would queue duplicate deploys).
     const raw = await this.client.request<unknown>("/deploy", {
+      method: "POST",
       query: params as Record<string, string | number | boolean | undefined>,
-      // /deploy is a side-effecting GET — never auto-retry it (would duplicate deploys).
-      idempotent: false,
     });
-    // GET /deploy returns { deployments: [...] }, NOT a bare array (confirmed live
+    // POST /deploy returns { deployments: [...] }, NOT a bare array (confirmed live
     // against Coolify 4.1.2). Normalize defensively so deploy/deploy_watch handlers
     // receive an array; tolerate a bare array (mocks / older versions) and odd bodies.
     if (raw && typeof raw === "object" && Array.isArray((raw as { deployments?: unknown }).deployments)) {

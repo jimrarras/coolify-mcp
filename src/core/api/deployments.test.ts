@@ -13,24 +13,29 @@ function makeClient(status: number, body: unknown, headers: Record<string, strin
 }
 
 describe("DeploymentsApi.trigger", () => {
-  it("calls GET /deploy with uuid query param", async () => {
+  // Coolify dropped the GET /deploy route in 4.2.0 (GET now 405s); POST has been
+  // accepted since at least 4.1.2 (Route::match(['get','post'])), so POST works
+  // on every supported version.
+  it("calls POST /deploy with uuid query param", async () => {
     const body = [{ message: "ok", resource_uuid: "app1", deployment_uuid: "dep1" }];
     const client = makeClient(200, body);
     const api = new DeploymentsApi(client);
     const result = await api.trigger({ uuid: "app1", force: true });
     expect(result).toEqual(body);
-    const [url] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const [url, init] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe("POST");
     expect(url).toContain("/api/v1/deploy");
     expect(url).toContain("uuid=app1");
     expect(url).toContain("force=true");
   });
 
-  it("calls GET /deploy with tag query param", async () => {
+  it("calls POST /deploy with tag query param", async () => {
     const body = [{ message: "ok", resource_uuid: "app2" }];
     const client = makeClient(200, body);
     const api = new DeploymentsApi(client);
     await api.trigger({ tag: "production" });
-    const [url] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const [url, init] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe("POST");
     expect(url).toContain("tag=production");
   });
 
@@ -51,9 +56,9 @@ describe("DeploymentsApi.trigger", () => {
     expect(result).toEqual(body);
   });
 
-  // /deploy is a side-effecting GET: a transient 5xx after Coolify accepted the
+  // /deploy is side-effecting: a transient 5xx after Coolify accepted the
   // deploy must NOT be retried, or the client would queue duplicate deployments.
-  it("does NOT retry GET /deploy on a transient 5xx", async () => {
+  it("does NOT retry POST /deploy on a transient 5xx", async () => {
     let calls = 0;
     globalThis.fetch = vi.fn(async () =>
       (calls++, new Response(JSON.stringify({ message: "bad gateway" }), { status: 502, headers: { "content-type": "application/json" } })),

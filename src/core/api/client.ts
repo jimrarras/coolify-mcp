@@ -151,10 +151,10 @@ export class CoolifyApiClient {
     };
 
     // Only retry idempotent requests. A transient 5xx/429 on a non-idempotent
-    // request (e.g. a POST create, or Coolify's side-effecting GET /deploy) may
-    // have already been applied server-side before a gateway timed out, so a retry
-    // would duplicate the side effect. Defaults to GET-is-idempotent; callers
-    // override via opts.idempotent for side-effecting GETs.
+    // request (e.g. POST /deploy or a POST create) may have already been applied
+    // server-side before a gateway timed out, so a retry would duplicate the side
+    // effect. Defaults to GET-is-idempotent; callers override via opts.idempotent
+    // for any side-effecting GET.
     const isIdempotent = opts.idempotent ?? (method === "GET");
     return withRetry(doFetch, {
       maxAttempts: this.retryOpts.maxAttempts ?? 4,
