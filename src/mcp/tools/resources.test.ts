@@ -260,6 +260,7 @@ describe("create_resource", () => {
 
     expect(result.status).toBe("ok");
     expect((result as Record<string, unknown>).uuid).toBe("newapp1");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.createPublic).toHaveBeenCalledWith(
       expect.objectContaining({ git_repository: "https://github.com/user/repo" }),
     );
@@ -420,6 +421,7 @@ describe("create_resource", () => {
 
     expect(result.status).toBe("ok");
     expect((result as Record<string, unknown>).uuid).toBe("newdb1");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.create).toHaveBeenCalledWith("postgresql", expect.objectContaining({ name: "mydb" }));
   });
 
@@ -456,6 +458,7 @@ describe("create_resource", () => {
 
     expect(result.status).toBe("ok");
     expect((result as Record<string, unknown>).uuid).toBe("newsvc1");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.services.create).toHaveBeenCalledWith(
       expect.objectContaining({ type: "plausible-analytics" }),
     );
@@ -483,6 +486,7 @@ describe("create_resource", () => {
 
     expect(result.status).toBe("ok");
     expect((result as Record<string, unknown>).uuid).toBe("newsvc2");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.services.create).toHaveBeenCalledWith(
       expect.objectContaining({ docker_compose_raw: base64Compose }),
     );
@@ -567,6 +571,7 @@ describe("create_resource", () => {
     );
     expect(result.status).toBe("ok");
     expect((result as Record<string, unknown>).dry_run).toBe(true);
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.createPublic).not.toHaveBeenCalled();
   });
 
@@ -612,6 +617,7 @@ describe("create_resource", () => {
       ctx,
     );
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.createPublic).toHaveBeenCalledWith(
       expect.objectContaining({
         build_pack: "nixpacks",
@@ -636,6 +642,7 @@ describe("create_resource", () => {
       ctx,
     );
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.create).toHaveBeenCalledWith(
       "postgresql",
       expect.objectContaining({ postgres_user: "admin", is_public: false }),
@@ -657,6 +664,7 @@ describe("update_resource", () => {
     expect(result.status).toBe("ok");
     const r = result as Record<string, unknown>;
     expect((r.resource as Record<string, unknown>).name).toBe("renamed-app");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", { name: "renamed-app" });
   });
 
@@ -671,6 +679,7 @@ describe("update_resource", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.update).toHaveBeenCalledWith("def456", { name: "renamed-db" });
   });
 
@@ -685,6 +694,7 @@ describe("update_resource", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.services.update).toHaveBeenCalledWith("ghi789", { name: "renamed-svc" });
   });
 
@@ -704,6 +714,7 @@ describe("update_resource", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", {
       post_deployment_command: "php artisan migrate",
       ports_exposes: "8080",
@@ -721,6 +732,7 @@ describe("update_resource", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", {
       name: "from-fields",
       start_command: "npm start",
@@ -738,6 +750,7 @@ describe("update_resource", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", { name: "renamed" });
   });
 
@@ -757,6 +770,7 @@ describe("update_resource", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", {
       start_command: "npm start",
       health_check_enabled: true,
@@ -777,6 +791,7 @@ describe("update_resource", () => {
       const r = result as Record<string, unknown>;
       expect((r.error as Record<string, unknown>).kind).toBe("invalid_input");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).not.toHaveBeenCalled();
   });
 
@@ -789,6 +804,7 @@ describe("update_resource", () => {
     );
     expect(result.status).toBe("error");
     expect(((result as Record<string, unknown>).error as Record<string, unknown>).kind).toBe("invalid_input");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).not.toHaveBeenCalled();
   });
 
@@ -803,6 +819,7 @@ describe("update_resource", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).toHaveBeenCalledWith("abc123", {
       domains: "https://app.example.com",
     });
@@ -840,6 +857,7 @@ describe("update_resource", () => {
     );
     expect(result.status).toBe("error");
     expect((result as Record<string, unknown>).error as Record<string, unknown>).toMatchObject({ kind: "destructive_blocked" });
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).not.toHaveBeenCalled();
   });
 
@@ -852,6 +870,7 @@ describe("update_resource", () => {
     );
     expect(result.status).toBe("error");
     expect((result as Record<string, unknown>).error as Record<string, unknown>).toMatchObject({ kind: "confirmation_required" });
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).not.toHaveBeenCalled();
   });
 
@@ -866,6 +885,7 @@ describe("update_resource", () => {
     const r = result as Record<string, unknown>;
     expect(r.dry_run).toBe(true);
     expect((r.preview as Record<string, unknown>).fields).toEqual(["name", "ports_exposes"]);
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).not.toHaveBeenCalled();
   });
 
@@ -882,6 +902,7 @@ describe("update_resource", () => {
       const r = result as Record<string, unknown>;
       expect((r.error as Record<string, unknown>).kind).toBe("invalid_input");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).not.toHaveBeenCalled();
   });
 
@@ -898,6 +919,7 @@ describe("update_resource", () => {
       const r = result as Record<string, unknown>;
       expect((r.error as Record<string, unknown>).kind).toBe("invalid_input");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.update).not.toHaveBeenCalled();
   });
 
@@ -1039,6 +1061,7 @@ describe("control_resource", () => {
     expect(result.status).toBe("ok");
     const r = result as Record<string, unknown>;
     expect(r.dry_run).toBe(true);
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.control).not.toHaveBeenCalled();
   });
 
@@ -1128,6 +1151,7 @@ describe("control_resource", () => {
       ctx,
     );
 
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.control).toHaveBeenCalledWith("abc123", "start", { instant_deploy: true });
   });
 });
@@ -1233,6 +1257,7 @@ describe("delete_resource", () => {
     expect(result.status).toBe("ok");
     const r = result as Record<string, unknown>;
     expect(r.dry_run).toBe(true);
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.delete).not.toHaveBeenCalled();
   });
 
@@ -1248,6 +1273,7 @@ describe("delete_resource", () => {
 
     expect(result.status).toBe("ok");
     expect((result as Record<string, unknown>).message).toBe("Application deleted.");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.delete).toHaveBeenCalledWith("abc123");
   });
 
@@ -1335,6 +1361,7 @@ describe("manage_storage", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.createStorage).toHaveBeenCalledWith("abc123", {
       name: "myvolume",
       mount_path: "/data",
@@ -1356,6 +1383,7 @@ describe("manage_storage", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.updateStorage).toHaveBeenCalledWith("abc123", "st1", {
       mount_path: "/newdata",
     });
@@ -1373,7 +1401,9 @@ describe("manage_storage", () => {
       expect(result.status).toBe("error");
       expect(((result as Record<string, unknown>).error as Record<string, unknown>).kind).toBe("invalid_input");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.createStorage).not.toHaveBeenCalled();
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.updateStorage).not.toHaveBeenCalled();
   });
 
@@ -1411,6 +1441,7 @@ describe("manage_storage", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.deleteStorage).toHaveBeenCalledWith("abc123", "st1");
   });
 
@@ -1467,6 +1498,7 @@ describe("manage_backups", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.createBackup).toHaveBeenCalledWith("def456", {
       frequency: "0 3 * * *",
       save_s3: false,
@@ -1484,6 +1516,7 @@ describe("manage_backups", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.createBackup).toHaveBeenCalledWith("def456", { frequency: "0 3 * * *" });
   });
 
@@ -1498,6 +1531,7 @@ describe("manage_backups", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.updateBackup).toHaveBeenCalledWith("def456", "bk1", { enabled: false });
   });
 
@@ -1513,7 +1547,9 @@ describe("manage_backups", () => {
       expect(result.status).toBe("error");
       expect(((result as Record<string, unknown>).error as Record<string, unknown>).kind).toBe("invalid_input");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.createBackup).not.toHaveBeenCalled();
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.updateBackup).not.toHaveBeenCalled();
   });
 
@@ -1551,6 +1587,7 @@ describe("manage_backups", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.deleteBackup).toHaveBeenCalledWith("def456", "bk1");
   });
 
@@ -1592,6 +1629,7 @@ describe("manage_scheduled_tasks", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.createScheduledTask).toHaveBeenCalledWith(
       "abc123",
       expect.objectContaining({ name: "nightly", command: "npm run cleanup" }),
@@ -1618,6 +1656,7 @@ describe("manage_scheduled_tasks", () => {
       ctx,
     );
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.services.createScheduledTask).toHaveBeenCalledWith(
       "svc123",
       expect.objectContaining({ container: "worker", timeout: 600, enabled: false }),
@@ -1656,6 +1695,7 @@ describe("manage_scheduled_tasks", () => {
     );
     expect(result.status).toBe("ok");
     expect((result as Record<string, unknown>).dry_run).toBe(true);
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.createScheduledTask).not.toHaveBeenCalled();
   });
 
@@ -1691,6 +1731,7 @@ describe("manage_scheduled_tasks", () => {
     );
     expect(result.status).toBe("ok");
     expect((result as Record<string, unknown>).dry_run).toBe(true);
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.updateScheduledTask).not.toHaveBeenCalled();
   });
 
@@ -1729,6 +1770,7 @@ describe("manage_scheduled_tasks", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.deleteScheduledTask).toHaveBeenCalledWith("abc123", "task1");
   });
 

@@ -126,6 +126,7 @@ describe("ssh_exec", () => {
       expect(result["stdout"]).toBe("total 8\n");
       expect(result["stderr"]).toBe("");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(fakeHostOps.rawExec).toHaveBeenCalledOnce();
   });
 
@@ -380,6 +381,7 @@ describe("ssh_exec R4 destructive fence", () => {
     if (result.status === "error") {
       expect(result.error.kind).toBe("destructive_blocked");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(fakeHostOps.rawExec).not.toHaveBeenCalled();
   });
 
@@ -397,6 +399,7 @@ describe("ssh_exec R4 destructive fence", () => {
     if (result.status === "error") {
       expect(result.error.kind).toBe("confirmation_required");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(fakeHostOps.rawExec).not.toHaveBeenCalled();
   });
 
@@ -414,6 +417,7 @@ describe("ssh_exec R4 destructive fence", () => {
     if (result.status === "error") {
       expect(result.error.kind).toBe("confirmation_required");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(fakeHostOps.rawExec).not.toHaveBeenCalled();
   });
 
@@ -435,6 +439,7 @@ describe("ssh_exec R4 destructive fence", () => {
       expect(preview["server"]).toBe("serverabc");
       expect(preview["command"]).toBe("cat /etc/passwd");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(fakeHostOps.rawExec).not.toHaveBeenCalled();
   });
 
@@ -452,6 +457,7 @@ describe("ssh_exec R4 destructive fence", () => {
     if (result.status === "ok") {
       expect(result["stdout"]).toBe("hello from server");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(fakeHostOps.rawExec).toHaveBeenCalledOnce();
   });
 });
@@ -511,6 +517,7 @@ describe("query_coolify_db", () => {
     if (result.status === "ok") {
       expect(result["rows"]).toContain("id | name");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(fakeHostOps.psqlReadOnly).toHaveBeenCalledWith("SELECT id, name FROM applications");
   });
 
@@ -566,6 +573,7 @@ describe("read_host_file", () => {
     if (result.status === "ok") {
       expect(result["contents"]).toContain("APP_ID=abc");
     }
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(fakeHostOps.readHostFile).toHaveBeenCalledWith("/data/coolify/source/.env");
   });
 

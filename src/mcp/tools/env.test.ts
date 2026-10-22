@@ -170,6 +170,7 @@ describe("manage_env — set", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.upsertEnvsBulk).toHaveBeenCalledWith("abc123", [{ key: "MY_VAR", value: "hello" }]);
   });
 
@@ -192,6 +193,7 @@ describe("manage_env — set", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.upsertEnvsBulk).toHaveBeenCalledWith("abc123", [
       { key: "VAR_A", value: "1" },
       { key: "VAR_B", value: "2" },
@@ -235,6 +237,7 @@ describe("manage_env — set", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.upsertEnvsBulk).toHaveBeenCalledWith("def456", [{ key: "DB_POOL", value: "10" }]);
   });
 
@@ -249,6 +252,7 @@ describe("manage_env — set", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.services.upsertEnvsBulk).toHaveBeenCalledWith("ghi789", [{ key: "REDIS_URL", value: "redis://localhost" }]);
   });
 });
@@ -304,6 +308,7 @@ describe("manage_env — delete", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.applications.deleteEnv).toHaveBeenCalledWith("abc123", "env1");
   });
 
@@ -331,6 +336,7 @@ describe("manage_env — delete", () => {
     );
 
     expect(result.status).toBe("ok");
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.databases.deleteEnv).toHaveBeenCalledWith("def456", "env2");
   });
 });

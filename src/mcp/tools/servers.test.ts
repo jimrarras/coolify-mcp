@@ -419,6 +419,7 @@ describe("manage_keys", () => {
     const result = await t.handler({ action: "create", name: "new-key", private_key: "-----BEGIN...", dry_run: true }, ctx);
     expect(result.status).toBe("ok");
     expect((result as any).dry_run).toBe(true);
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.security.createKey).not.toHaveBeenCalled();
   });
 
@@ -445,6 +446,7 @@ describe("manage_keys", () => {
     const result = await t.handler({ action: "update", uuid: "keyuuid1", name: "updated-key", dry_run: true }, ctx);
     expect(result.status).toBe("ok");
     expect((result as any).dry_run).toBe(true);
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(ctx.api.security.updateKey).not.toHaveBeenCalled();
   });
 

@@ -218,6 +218,7 @@ describe("stream_logs", () => {
       { kind: "applications", resource_uuid: "app1abc" },
       ctx,
     );
+    // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
     expect(resolverImpl.resolveByResource).toHaveBeenCalledWith("applications", "app1abc");
   });
 
