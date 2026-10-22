@@ -2,12 +2,13 @@ allowBuilds:
   esbuild: true
   ssh2: false
 
+
+overrides:
+  cpu-features: npm:@favware/skip-dependency@latest
+
 # Supply-chain and safety policy (the same in every project of the fleet)
 minimumReleaseAge: 1440
 trustPolicy: no-downgrade
 blockExoticSubdeps: true
 strictDepBuilds: true
 engineStrict: true
-
-overrides:
-  cpu-features: npm:@favware/skip-dependency@latest

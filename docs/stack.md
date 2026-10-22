@@ -7,7 +7,7 @@ React/Vite apps, single package or monorepo). This file is the reference and is 
 
 ## Runtime and package manager
 
-- **Node 26** (LTS from 2026-10-28). Pinned in `engines.node` (`>=26`) and `.node-version`; Docker images use
+- **Node 26** (LTS from 2026-10-28). Pinned in `engines.node` (`>=26.12.1`, the latest security release: raise it with every Node security release) and `.node-version`; Docker images use
   `node:26` (same variant as before) and install pnpm with `npm install -g pnpm@<version>` (Node 26 no longer
   bundles corepack). `engineStrict` is on, so installing on an older Node fails fast.
 - **pnpm 12**, pinned in `packageManager` (the exact version). Never commit `package-lock.json` or `yarn.lock`.

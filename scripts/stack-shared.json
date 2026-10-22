@@ -9,7 +9,7 @@
     ".github/workflows/ci.yml": "9b5a07a743ef6ad4c2dfba9a41c2f66ed08f9d6590d80478cf357b114cd3c1d1",
     ".oxfmtrc.json": "3f72cbdbf2997bc4aba73bdfd4af61a57c99a81f43cdda9d2ee4e352da91a053",
     ".oxlintrc.json": "d4e8b73c2b05d8be19ba368f5ff04f487770566fd72680405d9f2a0507608043",
-    "docs/stack.md": "016ef9008ff3d507b7c3e4c4dfca4f810afbfe0deccf76b199f3d845a773e36d"
+    "docs/stack.md": "c873dd61410733ee1ab129d88f239a30a848d4119be218736f788427db62c8ea"
   },
   "workspacePolicy": {
     "minimumReleaseAge": 1440,
@@ -21,7 +21,7 @@
   "packageJson": {
     "packageManager": "pnpm@12.14.0",
     "engines": {
-      "node": ">=26"
+      "node": ">=26.12.1"
     },
     "scripts": {
       "lint": "oxlint --type-aware",
