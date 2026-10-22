@@ -1,4 +1,5 @@
 // src/core/ssh/resolver.ts
+import { asString } from "../str.js";
 import type { CoolifyApiClient } from "../api/client.js";
 import type { ResourceKind } from "../api/deployments.js";
 import { CoolifyError } from "../errors.js";
@@ -29,7 +30,7 @@ function isNonRoutableHost(ip: string): boolean {
     h === "localhost" ||
     h === "0.0.0.0" ||
     h === "::1" ||
-    /^127\./.test(h)
+    h.startsWith("127.")
   );
 }
 
@@ -62,9 +63,9 @@ export class ServerResolver {
       const wantHost = new URL(this.baseUrl).hostname.toLowerCase();
       const all = await this.api.servers.list();
       record = all.find((s) => {
-        const ip = String(s["ip"] ?? "").toLowerCase();
-        const name = String(s["name"] ?? "").toLowerCase();
-        const fqdn = String(s["fqdn"] ?? s["domain"] ?? "").toLowerCase();
+        const ip = asString(s["ip"]).toLowerCase();
+        const name = asString(s["name"]).toLowerCase();
+        const fqdn = asString(s["fqdn"] ?? s["domain"]).toLowerCase();
         // Exact matches only. A substring (`includes`) match would let a
         // compromised Coolify API hijack control-host selection with a record
         // whose fqdn merely *contains* the real host (e.g. "evil-coolify.example.com"),
@@ -78,12 +79,12 @@ export class ServerResolver {
         );
       }
     }
-    const serverUuid = String(record["uuid"] ?? "");
+    const serverUuid = asString(record["uuid"]);
     this.coolifyHostUuid = serverUuid;
     // Invalidate any cached entry for this uuid so _buildTarget rebuilds it with isCoolifyHost=true.
     this.cache.delete(`server:${serverUuid}`);
-    const rawIp = String(record["ip"] ?? "");
-    const user = String(record["user"] ?? "root");
+    const rawIp = asString(record["ip"]);
+    const user = asString(record["user"], "root");
     const port = typeof record["port"] === "number" ? (record["port"] as number) : 22;
     // If the resolved control host's ip is a non-routable alias (host.docker.internal,
     // loopback, …) an external workstation cannot SSH to it. Substitute the
@@ -96,7 +97,7 @@ export class ServerResolver {
     if (isNonRoutableHost(rawIp) && this.baseUrl) {
       host = new URL(this.baseUrl).hostname;
     }
-    const IP_RE = /^[A-Za-z0-9.\-:\[\]]+$/;
+    const IP_RE = /^[A-Za-z0-9.\-:[\]]+$/;
     const USER_RE = /^[A-Za-z0-9_.-]+$/;
     if (!IP_RE.test(host)) {
       throw new CoolifyError(
@@ -172,7 +173,7 @@ export class ServerResolver {
       }
     }
 
-    const uuid = String(serverRecord!["uuid"] ?? "");
+    const uuid = asString(serverRecord!["uuid"]);
     const target = this._buildTarget(uuid, serverRecord!);
     this.cache.set(cacheKey, target);
     return target;
@@ -197,12 +198,12 @@ export class ServerResolver {
       return { serverUuid, isCoolifyHost: true };
     }
 
-    const ip = String(record["ip"] ?? "");
-    const user = String(record["user"] ?? "root");
+    const ip = asString(record["ip"]);
+    const user = asString(record["user"], "root");
 
     // Validate ip/host: allow only characters safe in a URI authority / SSH host
     // (alphanumerics, dots, hyphens, colons for IPv6, brackets for [::1] notation)
-    const IP_RE = /^[A-Za-z0-9.\-:\[\]]+$/;
+    const IP_RE = /^[A-Za-z0-9.\-:[\]]+$/;
     if (!IP_RE.test(ip)) {
       throw new CoolifyError(
         "invalid_input",

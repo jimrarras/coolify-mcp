@@ -2,6 +2,7 @@
 // paths, per-field validation/coercion, secret redaction, and the block
 // invariants (ssh needs keyPath, db needs readonlyUser) that keep an edited
 // raw config loadable by the schema validator.
+import { asString } from "../core/str.js";
 import { CoolifyError } from "../core/errors.js";
 import { assertCoolifyTokenFormat } from "../core/validate.js";
 import { isValidDbRoleName } from "./init.js";
@@ -149,7 +150,7 @@ export function redactValue(field: string, value: unknown): string {
   if (value === undefined) return "(unset)";
   // Whole blocks (ssh/db) may hold secrets — never stringify them.
   if (value !== null && typeof value === "object") return "(configured)";
-  const s = String(value);
+  const s = asString(value);
   if (!SECRET_FIELDS.includes(field)) return s;
   if (isEnvRef(s)) return s;
   if (field === "token") {

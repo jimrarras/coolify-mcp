@@ -5,7 +5,7 @@
 //
 // Task 30: stream_logs — live tail via HostOps.dockerStream + progress + cancellation.
 //
-import { ok, err, partial, toErrorResult } from "../../core/errors.js";
+import { ok, err, toErrorResult } from "../../core/errors.js";
 import { checkFences } from "../../core/fencing.js";
 import { assertCoolifyUuid } from "../../core/validate.js";
 import type { ToolDef, ToolHandler, ToolContext } from "./types.js";

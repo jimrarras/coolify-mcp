@@ -162,15 +162,18 @@ const deployWatchHandler = async (
 
     const onProgress = (e: { resource_uuid: string; status: string; lines: number }) => {
       if (ctx.notifier?.sendNotification && ctx.progressToken !== undefined) {
-        ctx.notifier.sendNotification({
-          method: "notifications/progress",
-          params: {
-            progressToken: ctx.progressToken,
-            progress: e.lines,
-            total: undefined,
-            message: `${e.resource_uuid}: ${e.status} (${e.lines} log lines)`,
-          },
-        });
+        // Progress is best-effort: a failed notification must not fail (or crash) the deploy.
+        ctx.notifier
+          .sendNotification({
+            method: "notifications/progress",
+            params: {
+              progressToken: ctx.progressToken,
+              progress: e.lines,
+              total: undefined,
+              message: `${e.resource_uuid}: ${e.status} (${e.lines} log lines)`,
+            },
+          })
+          .catch(() => undefined);
       }
     };
 

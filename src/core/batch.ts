@@ -27,7 +27,7 @@ export async function runBatch<I>(
   concurrency: number,
   worker: (item: I, index: number) => Promise<unknown>,
 ): Promise<BatchEnvelope> {
-  const results: BatchItemResult[] = new Array(items.length);
+  const results: BatchItemResult[] = Array.from<BatchItemResult>({ length: items.length });
   let nextIndex = 0;
 
   async function runWorker(): Promise<void> {

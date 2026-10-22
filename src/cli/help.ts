@@ -96,7 +96,7 @@ Usage:
 Checks each instance: API reachability and version, control-host resolution,
 SSH connectivity, and the read-only DB role (when configured).`;
 
-export function helpText(topic?: HelpTopic | string): string {
+export function helpText(topic?: string): string {
   switch (topic) {
     case "instances": return INSTANCES;
     case "init": return INIT;

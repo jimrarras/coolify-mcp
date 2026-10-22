@@ -185,7 +185,7 @@ export async function runInitFlow(deps: InitDeps): Promise<number> {
   }
 
   // 4. merge into existing config (preserve other instances and their ${ENV} refs verbatim)
-  const merged: RawConfig = { ...(existing ?? {}) };
+  const merged: RawConfig = { ...existing };
   const instancesOut: Record<string, unknown> = { ...existingInstances };
   instancesOut[instanceName] = buildInstanceObject({ instanceName, baseUrl, enableHostOps, envSecrets, token, ssh, db });
   merged.instances = instancesOut;

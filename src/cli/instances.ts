@@ -1,4 +1,5 @@
 // src/cli/instances.ts
+import { asString } from "../core/str.js";
 import { homedir } from "node:os";
 import { resolveConfigPath } from "../core/config/path.js";
 import { readRawConfig, writeRawConfig, type RawConfig } from "./config-file.js";
@@ -87,13 +88,13 @@ function listInstances(path: string, raw: RawConfig | null, env: Record<string, 
   out(`config: ${path}`);
   out("instances (* = default):");
   const nameW = Math.max(...names.map((n) => n.length));
-  const urlW = Math.max(...names.map((n) => String((instances[n] as Record<string, unknown>).baseUrl ?? "").length));
+  const urlW = Math.max(...names.map((n) => asString((instances[n] as Record<string, unknown>).baseUrl).length));
   for (const name of names) {
     const i = instances[name] as Record<string, unknown>;
     const mark = name === def ? "*" : " ";
     const cols = [
       `${mark} ${name.padEnd(nameW)}`,
-      String(i.baseUrl ?? "").padEnd(urlW),
+      asString(i.baseUrl).padEnd(urlW),
       `host-ops:${flag(i.enableHostOps)}`,
       `destructive:${flag(i.allowDestructive)}`,
       `ssh:${i.ssh ? "✓" : "—"}`,
