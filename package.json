@@ -27,25 +27,33 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "probe": "tsx src/scripts/probe.ts",
-    "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run lint && npm test && npm run build && git diff --exit-code dist/ THIRD-PARTY-NOTICES.txt"
+    "typecheck": "tsc --noEmit",
+    "ci:prebuild": "echo no prebuild gates",
+    "ci:postbuild": "git diff --exit-code dist/ THIRD-PARTY-NOTICES.txt",
+    "ci:e2e": "echo no e2e tests",
+    "lint": "oxlint --type-aware",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run check:stack",
+    "check:stack": "node scripts/check-stack.mjs",
+    "prepublishOnly": "pnpm run check && pnpm test && pnpm run build && git diff --exit-code dist/ THIRD-PARTY-NOTICES.txt"
   },
   "dependencies": {},
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@types/node": "^20.0.0",
+    "@types/node": "^26.6.5",
     "@types/ssh2": "^1.15.0",
-    "dotenv": "^16.4.5",
     "esbuild": "^0.28.0",
+    "oxfmt": "^0.74.0",
+    "oxlint": "^1.89.0",
+    "oxlint-tsgolint": "^7.0.2004",
     "ssh2": "^1.16.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.5.0",
-    "vitest": "^4.1.9"
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=26"
   },
-  "overrides": {
-    "cpu-features": "npm:@favware/skip-dependency@latest"
-  }
+  "packageManager": "pnpm@12.14.0"
 }
