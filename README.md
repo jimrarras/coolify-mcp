@@ -498,18 +498,18 @@ When `enableHostOps: true` is set for an instance (or `--enable-host-ops` in env
 ## Development
 
 ```bash
-npm install
-npm test              # vitest
-npm run build         # esbuild -> single self-contained dist/cli/index.js bundle
-npm run probe         # scripts/probe.ts (requires COOLIFY_TEST_BASE_URL / COOLIFY_TEST_TOKEN)
+pnpm install
+pnpm test              # vitest
+pnpm run build         # esbuild -> single self-contained dist/cli/index.js bundle
+pnpm run probe         # scripts/probe.ts (requires COOLIFY_TEST_BASE_URL / COOLIFY_TEST_TOKEN)
 ```
 
-> **Note — `dist/` is committed.** `npm run build` bundles the CLI, the MCP server, and
+> **Note — `dist/` is committed.** `pnpm run build` bundles the CLI, the MCP server, and
 > **all runtime deps** (ssh2, the MCP SDK, …) into a single `dist/cli/index.js` via esbuild,
 > with ssh2's native bindings externalized (it falls back to pure-JS crypto). The result has
 > **zero runtime dependencies**, so `npm install github:…` compiles nothing and runs no install
 > scripts on the user's machine. Because no build runs at install time, the bundle is checked
-> into git: **run `npm run build` and commit the updated `dist/cli/index.js` (and the
+> into git: **run `pnpm run build` and commit the updated `dist/cli/index.js` (and the
 > regenerated `THIRD-PARTY-NOTICES.txt`) whenever you change anything under `src/`.**
 > (Runtime libs live in `devDependencies` since they're bundled, not installed by
 > consumers.) CI runs `git diff --exit-code dist/ THIRD-PARTY-NOTICES.txt` so a stale

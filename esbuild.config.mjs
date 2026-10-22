@@ -32,7 +32,7 @@ const result = await build({
   bundle: true,
   platform: "node",
   format: "esm",
-  target: "node20",
+  target: "node26",
   outfile: "dist/cli/index.js",
   external: ["cpu-features", "*.node"],
   banner: { js: banner },
