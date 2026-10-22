@@ -12,8 +12,11 @@
  * Add --host-ops to also probe SSH-dependent endpoints (requires SSH env vars too).
  */
 
-import { config as loadDotenv } from "dotenv";
-loadDotenv();
+try {
+  process.loadEnvFile(".env");
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+}
 
 import { CoolifyApiClient } from "../core/api/client.js";
 
