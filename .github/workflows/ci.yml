@@ -1,34 +1,44 @@
 name: CI
 
+# Fleet-shared file: identical in every repo of its profile (scripts/check-stack.mjs). Repo-specific
+# gates live in package.json as ci:prebuild, ci:postbuild and ci:e2e, never here (docs/stack.md).
+# Jobs that need services (a database, a deploy) live in their own, repo-owned workflow files.
+
 on:
-  push:
-    branches: [master]
   pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+  # A repo-owned deploy workflow gates on this one with `uses: ./.github/workflows/ci.yml`.
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  build-test:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-
-      - name: Lint (tsc --noEmit)
-        run: npm run lint
-
-      - name: Test
-        run: npm test
-
-      - name: Build bundle
-        run: npm run build
-
-      # The bundle (dist/) and THIRD-PARTY-NOTICES.txt are committed artifacts.
-      # Fail if a source change was committed without rebuilding them, so a stale
-      # bundle can never be shipped to `npm install github:...` consumers.
-      - name: Check committed bundle is in sync with source
-        run: git diff --exit-code dist/ THIRD-PARTY-NOTICES.txt
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm run check
+      - run: pnpm run ci:prebuild
+      - run: pnpm run build
+      - run: pnpm run ci:postbuild
+      # Browser tests (ci:e2e installs its own browser where a repo has any; a repo without browser tests
+      # defines it as a no-op), never on dependency-bot PRs.
+      - if: github.actor != 'dependabot[bot]'
+        run: pnpm run ci:e2e
