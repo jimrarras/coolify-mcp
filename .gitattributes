@@ -1,7 +1,9 @@
-# Normalize to LF in the repo and on checkout so the committed dist/ bin shebang
-# (#!/usr/bin/env node) works on macOS/Linux regardless of the installer's git
-# core.autocrlf setting. Windows .cmd/.bat shims keep CRLF.
 * text=auto eol=lf
-*.cmd text eol=crlf
-*.bat text eol=crlf
-*.ppk binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff2 binary
+pnpm-lock.yaml linguist-generated
