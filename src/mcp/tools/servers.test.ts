@@ -14,35 +14,35 @@ function makeCtx(overrides?: {
   hetzner?: Record<string, unknown>;
 }): ToolContext {
   const defaultServers = {
-    list: vi.fn(async () => [
+    list: vi.fn<(...args: any[]) => any>(async () => [
       { uuid: "srvuuid1", name: "My Server", ip: "1.2.3.4", reachable: true, settings: {} },
     ]),
-    get: vi.fn(async (_uuid: string) => ({
+    get: vi.fn<(...args: any[]) => any>(async (_uuid: string) => ({
       uuid: "srvuuid1", name: "My Server", ip: "1.2.3.4", reachable: true, settings: {},
     })),
-    validate: vi.fn(async (_uuid: string) => ({ message: "Server is reachable." })),
-    resources: vi.fn(async (_uuid: string) => [{ uuid: "appuuid1", type: "application" }]),
-    domains: vi.fn(async (_uuid: string) => [{ domain: "example.com" }]),
-    create: vi.fn(async (_body: Record<string, unknown>) => ({ uuid: "newsrv1" })),
-    createHetzner: vi.fn(async (_body: Record<string, unknown>) => ({ uuid: "hetnewsrv1" })),
-    update: vi.fn(async (_uuid: string, _body: Record<string, unknown>) => ({
+    validate: vi.fn<(...args: any[]) => any>(async (_uuid: string) => ({ message: "Server is reachable." })),
+    resources: vi.fn<(...args: any[]) => any>(async (_uuid: string) => [{ uuid: "appuuid1", type: "application" }]),
+    domains: vi.fn<(...args: any[]) => any>(async (_uuid: string) => [{ domain: "example.com" }]),
+    create: vi.fn<(...args: any[]) => any>(async (_body: Record<string, unknown>) => ({ uuid: "newsrv1" })),
+    createHetzner: vi.fn<(...args: any[]) => any>(async (_body: Record<string, unknown>) => ({ uuid: "hetnewsrv1" })),
+    update: vi.fn<(...args: any[]) => any>(async (_uuid: string, _body: Record<string, unknown>) => ({
       uuid: "srvuuid1", name: "Updated Server",
     })),
-    delete: vi.fn(async (_uuid: string) => ({ message: "Server deleted." })),
+    delete: vi.fn<(...args: any[]) => any>(async (_uuid: string) => ({ message: "Server deleted." })),
     ...overrides?.servers,
   };
 
   const defaultSecurity = {
-    listKeys: vi.fn(async () => [{ uuid: "keyuuid1", name: "my-key", private_key: "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----" }]),
-    getKey: vi.fn(async (_uuid: string) => ({ uuid: "keyuuid1", name: "my-key", public_key: "ssh-rsa AAA...", private_key: "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----" })),
-    createKey: vi.fn(async (_body: Record<string, unknown>) => ({ uuid: "newkeyuuid1" })),
-    updateKey: vi.fn(async (_body: Record<string, unknown>) => ({ uuid: "keyuuid1", name: "updated-key" })),
-    deleteKey: vi.fn(async (_uuid: string) => ({ message: "Key deleted." })),
+    listKeys: vi.fn<(...args: any[]) => any>(async () => [{ uuid: "keyuuid1", name: "my-key", private_key: "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----" }]),
+    getKey: vi.fn<(...args: any[]) => any>(async (_uuid: string) => ({ uuid: "keyuuid1", name: "my-key", public_key: "ssh-rsa AAA...", private_key: "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----" })),
+    createKey: vi.fn<(...args: any[]) => any>(async (_body: Record<string, unknown>) => ({ uuid: "newkeyuuid1" })),
+    updateKey: vi.fn<(...args: any[]) => any>(async (_body: Record<string, unknown>) => ({ uuid: "keyuuid1", name: "updated-key" })),
+    deleteKey: vi.fn<(...args: any[]) => any>(async (_uuid: string) => ({ message: "Key deleted." })),
     ...overrides?.security,
   };
 
   const defaultHetzner = {
-    list: vi.fn(async (resource: string) => {
+    list: vi.fn<(...args: any[]) => any>(async (resource: string) => {
       if (resource === "server-types") return [{ id: 1, name: "cx11" }];
       if (resource === "locations") return [{ id: 1, name: "nbg1" }];
       if (resource === "images") return [{ id: 1, name: "ubuntu-22.04" }];
@@ -485,7 +485,7 @@ describe("manage_keys", () => {
     const ctx = makeCtx({
       allowDestructive: true,
       security: {
-        updateKey: vi.fn(async (_body: Record<string, unknown>) => ({
+        updateKey: vi.fn<(...args: any[]) => any>(async (_body: Record<string, unknown>) => ({
           uuid: "keyuuid1",
           name: "updated-key",
           private_key: "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----",

@@ -6,7 +6,7 @@ import type { ApiConfig } from "../config.js";
 const CFG: ApiConfig = { baseUrl: "https://cool.example.com", token: "1|tok", extraHeaders: {} };
 
 function makeClient(status: number, body: unknown): CoolifyApiClient {
-  globalThis.fetch = vi.fn(async () =>
+  globalThis.fetch = vi.fn<(...args: any[]) => any>(async () =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }),
   ) as typeof globalThis.fetch;
   return new CoolifyApiClient(CFG, { maxAttempts: 1, baseDelayMs: 0 });

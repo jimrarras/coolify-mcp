@@ -8,7 +8,7 @@ describe("runDeployWatch", () => {
   }
 
   function makeSleepSpy() {
-    return vi.fn(async (_ms: number) => {});
+    return vi.fn<(...args: any[]) => any>(async (_ms: number) => {});
   }
 
   it("resolves immediately for a trigger with no deployment_uuid as 'skipped'", async () => {
@@ -17,24 +17,24 @@ describe("runDeployWatch", () => {
       { message: "Nothing to deploy.", resource_uuid: "res1abc" },
     ];
     const fakeDeployments = {
-      trigger: vi.fn(),
-      listActive: vi.fn(),
-      history: vi.fn(),
-      get: vi.fn(),
-      cancel: vi.fn(),
+      trigger: vi.fn<(...args: any[]) => any>(),
+      listActive: vi.fn<(...args: any[]) => any>(),
+      history: vi.fn<(...args: any[]) => any>(),
+      get: vi.fn<(...args: any[]) => any>(),
+      cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
     const fakeServers = {
-      list: vi.fn(async () => []),
-      get: vi.fn(async () => ({})),
-      validate: vi.fn(),
-      resources: vi.fn(async (_uuid: string) => [
+      list: vi.fn<(...args: any[]) => any>(async () => []),
+      get: vi.fn<(...args: any[]) => any>(async () => ({})),
+      validate: vi.fn<(...args: any[]) => any>(),
+      resources: vi.fn<(...args: any[]) => any>(async (_uuid: string) => [
         { uuid: "res1abc", status: "stopped" },
       ]),
-      domains: vi.fn(),
-      create: vi.fn(),
-      createHetzner: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
+      domains: vi.fn<(...args: any[]) => any>(),
+      create: vi.fn<(...args: any[]) => any>(),
+      createHetzner: vi.fn<(...args: any[]) => any>(),
+      update: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     const results = await runDeployWatch(triggers, async () => "server1uuid", {
@@ -55,17 +55,17 @@ describe("runDeployWatch", () => {
 
     let callCount = 0;
     const fakeDeployments = {
-      get: vi.fn(async (_uuid: string) => {
+      get: vi.fn<(...args: any[]) => any>(async (_uuid: string) => {
         callCount++;
         if (callCount < 3) {
           return { id: 1, deployment_uuid: "dep1", status: "in_progress" };
         }
         return { id: 1, deployment_uuid: "dep1", status: "finished" };
       }),
-      trigger: vi.fn(),
-      listActive: vi.fn(),
-      history: vi.fn(),
-      cancel: vi.fn(),
+      trigger: vi.fn<(...args: any[]) => any>(),
+      listActive: vi.fn<(...args: any[]) => any>(),
+      history: vi.fn<(...args: any[]) => any>(),
+      cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
     const fakeServers = {} as any;
 
@@ -94,16 +94,16 @@ describe("runDeployWatch", () => {
     const runDeployWatch = await load();
 
     const fakeDeployments = {
-      get: vi.fn(async () => ({
+      get: vi.fn<(...args: any[]) => any>(async () => ({
         id: 2,
         deployment_uuid: "dep2",
         status: "failed",
         logs: "Build error: exit 1",
       })),
-      trigger: vi.fn(),
-      listActive: vi.fn(),
-      history: vi.fn(),
-      cancel: vi.fn(),
+      trigger: vi.fn<(...args: any[]) => any>(),
+      listActive: vi.fn<(...args: any[]) => any>(),
+      history: vi.fn<(...args: any[]) => any>(),
+      cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     const triggers: import("../../core/api/deployments.js").DeployTriggerResult[] = [
@@ -125,19 +125,19 @@ describe("runDeployWatch", () => {
     const runDeployWatch = await load();
 
     const fakeDeployments = {
-      get: vi.fn(async () => ({
+      get: vi.fn<(...args: any[]) => any>(async () => ({
         id: 3,
         deployment_uuid: "dep3",
         status: "in_progress",
       })),
-      trigger: vi.fn(),
-      listActive: vi.fn(),
-      history: vi.fn(),
-      cancel: vi.fn(),
+      trigger: vi.fn<(...args: any[]) => any>(),
+      listActive: vi.fn<(...args: any[]) => any>(),
+      history: vi.fn<(...args: any[]) => any>(),
+      cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     let sleepCalls = 0;
-    const sleepSpy = vi.fn(async (_ms: number) => {
+    const sleepSpy = vi.fn<(...args: any[]) => any>(async (_ms: number) => {
       sleepCalls++;
       if (sleepCalls > 5) {
         // Simulate time passing by throwing — the watch should detect deadline via elapsed tracking.
@@ -165,15 +165,15 @@ describe("runDeployWatch", () => {
 
     let callCount = 0;
     const fakeDeployments = {
-      get: vi.fn(async () => {
+      get: vi.fn<(...args: any[]) => any>(async () => {
         callCount++;
         if (callCount < 2) return { id: 4, deployment_uuid: "dep4", status: "in_progress" };
         return { id: 4, deployment_uuid: "dep4", status: "finished" };
       }),
-      trigger: vi.fn(),
-      listActive: vi.fn(),
-      history: vi.fn(),
-      cancel: vi.fn(),
+      trigger: vi.fn<(...args: any[]) => any>(),
+      listActive: vi.fn<(...args: any[]) => any>(),
+      history: vi.fn<(...args: any[]) => any>(),
+      cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     const progressEvents: Array<{ resource_uuid: string; status: string; lines: number }> = [];
@@ -203,16 +203,16 @@ describe("runDeployWatch", () => {
     const callCounts: Record<string, number> = { dep_a: 0, dep_b: 0 };
 
     const fakeDeployments = {
-      get: vi.fn(async (uuid: string) => {
+      get: vi.fn<(...args: any[]) => any>(async (uuid: string) => {
         callCounts[uuid] = (callCounts[uuid] ?? 0) + 1;
         const statuses = statusMap[uuid] ?? ["finished"];
         const idx = Math.min(callCounts[uuid] - 1, statuses.length - 1);
         return { id: 0, deployment_uuid: uuid, status: statuses[idx] };
       }),
-      trigger: vi.fn(),
-      listActive: vi.fn(),
-      history: vi.fn(),
-      cancel: vi.fn(),
+      trigger: vi.fn<(...args: any[]) => any>(),
+      listActive: vi.fn<(...args: any[]) => any>(),
+      history: vi.fn<(...args: any[]) => any>(),
+      cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     const triggers: import("../../core/api/deployments.js").DeployTriggerResult[] = [
@@ -258,13 +258,13 @@ describe("runDeployWatch", () => {
     const runDeployWatch = await load();
     let n = 0;
     const fakeDeployments = {
-      get: vi.fn(async (_uuid: string) => {
+      get: vi.fn<(...args: any[]) => any>(async (_uuid: string) => {
         n++;
         if (n === 1) throw Object.assign(new Error("HTTP 404: Resource not found"), { kind: "not_found" });
         if (n === 2) throw Object.assign(new Error("HTTP 503: Transient error"), { kind: "transient_exhausted" });
         return { id: 1, deployment_uuid: "dep1", status: "finished" };
       }),
-      trigger: vi.fn(), listActive: vi.fn(), history: vi.fn(), cancel: vi.fn(),
+      trigger: vi.fn<(...args: any[]) => any>(), listActive: vi.fn<(...args: any[]) => any>(), history: vi.fn<(...args: any[]) => any>(), cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
     const results = await runDeployWatch(
       [{ message: "queued", resource_uuid: "app1", deployment_uuid: "dep1" }],
@@ -278,8 +278,8 @@ describe("runDeployWatch", () => {
   it("gives up as 'unknown' after a bounded number of consecutive poll errors (not infinitely)", async () => {
     const runDeployWatch = await load();
     const fakeDeployments = {
-      get: vi.fn(async () => { throw Object.assign(new Error("HTTP 503"), { kind: "transient_exhausted" }); }),
-      trigger: vi.fn(), listActive: vi.fn(), history: vi.fn(), cancel: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>(async () => { throw Object.assign(new Error("HTTP 503"), { kind: "transient_exhausted" }); }),
+      trigger: vi.fn<(...args: any[]) => any>(), listActive: vi.fn<(...args: any[]) => any>(), history: vi.fn<(...args: any[]) => any>(), cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
     const results = await runDeployWatch(
       [{ message: "queued", resource_uuid: "app1", deployment_uuid: "dep1" }],
@@ -296,16 +296,16 @@ describe("runDeployWatch", () => {
   it("does not let transient poll errors inflate the steady-state poll cadence (counters decoupled)", async () => {
     const runDeployWatch = await load();
     const sleepCalls: number[] = [];
-    const sleep = vi.fn(async (ms: number) => { sleepCalls.push(ms); });
+    const sleep = vi.fn<(...args: any[]) => any>(async (ms: number) => { sleepCalls.push(ms); });
     let n = 0;
     const fakeDeployments = {
-      get: vi.fn(async () => {
+      get: vi.fn<(...args: any[]) => any>(async () => {
         n++;
         if (n <= 2) throw Object.assign(new Error("HTTP 503"), { kind: "transient_exhausted" });
         if (n <= 4) return { id: 1, deployment_uuid: "dep1", status: "in_progress" };
         return { id: 1, deployment_uuid: "dep1", status: "finished" };
       }),
-      trigger: vi.fn(), listActive: vi.fn(), history: vi.fn(), cancel: vi.fn(),
+      trigger: vi.fn<(...args: any[]) => any>(), listActive: vi.fn<(...args: any[]) => any>(), history: vi.fn<(...args: any[]) => any>(), cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
     const results = await runDeployWatch(
       [{ message: "queued", resource_uuid: "app1", deployment_uuid: "dep1" }],
@@ -323,16 +323,16 @@ describe("runDeployWatch", () => {
     const runDeployWatch = await load();
 
     const fakeDeployments = {
-      get: vi.fn(async (uuid: string) => {
+      get: vi.fn<(...args: any[]) => any>(async (uuid: string) => {
         if (uuid === "dep_bad") {
           throw Object.assign(new Error("HTTP 401: Unauthorized/Forbidden"), { kind: "auth" });
         }
         return { id: 0, deployment_uuid: uuid, status: "finished" };
       }),
-      trigger: vi.fn(),
-      listActive: vi.fn(),
-      history: vi.fn(),
-      cancel: vi.fn(),
+      trigger: vi.fn<(...args: any[]) => any>(),
+      listActive: vi.fn<(...args: any[]) => any>(),
+      history: vi.fn<(...args: any[]) => any>(),
+      cancel: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     const triggers: import("../../core/api/deployments.js").DeployTriggerResult[] = [

@@ -13,12 +13,12 @@ function makeKnownHostsLine(hostname: string, rawKeyBytes: Buffer, keyType = "ss
 
 // ---- hoisted mock definitions so vi.mock factory can reference them ----
 const { mockSftpReadFile, mockSftpRealpath, mockSftpStat, mockSftpInstance, mockChannelSignal, mockStreamEnd, MockStream, MockClient } = vi.hoisted(() => {
-  const mockSftpReadFile = vi.fn();
-  const mockSftpRealpath = vi.fn();
-  const mockSftpStat = vi.fn();
-  const mockSftpInstance = { fastGet: vi.fn(), readFile: mockSftpReadFile, realpath: mockSftpRealpath, stat: mockSftpStat };
-  const mockChannelSignal = vi.fn();
-  const mockStreamEnd = vi.fn();
+  const mockSftpReadFile = vi.fn<(...args: any[]) => any>();
+  const mockSftpRealpath = vi.fn<(...args: any[]) => any>();
+  const mockSftpStat = vi.fn<(...args: any[]) => any>();
+  const mockSftpInstance = { fastGet: vi.fn<(...args: any[]) => any>(), readFile: mockSftpReadFile, realpath: mockSftpRealpath, stat: mockSftpStat };
+  const mockChannelSignal = vi.fn<(...args: any[]) => any>();
+  const mockStreamEnd = vi.fn<(...args: any[]) => any>();
 
   class MockStream {
     private _dataListeners: ((data: Buffer) => void)[] = [];
@@ -89,7 +89,7 @@ vi.mock("ssh2", () => ({
 
 // Also mock fs so readFileSync doesn't fail during connect() in tests
 vi.mock("fs", () => ({
-  readFileSync: vi.fn().mockReturnValue(Buffer.from("mock-private-key")),
+  readFileSync: vi.fn<(...args: any[]) => any>().mockReturnValue(Buffer.from("mock-private-key")),
 }));
 
 import { SshClient } from "./client.js";

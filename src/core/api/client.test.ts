@@ -10,7 +10,7 @@ const BASE_CFG: ApiConfig = {
 };
 
 function makeFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
-  return vi.fn(async (_url: string, _init?: RequestInit) =>
+  return vi.fn<(...args: any[]) => any>(async (_url: string, _init?: RequestInit) =>
     new Response(
       typeof body === "string" ? body : JSON.stringify(body),
       {
@@ -132,7 +132,7 @@ describe("CoolifyApiClient.request", () => {
   it("does NOT retry a GET marked idempotent:false (side-effecting GET override) on a 5xx", async () => {
     // Retrying a side-effecting GET would duplicate the side effect server-side.
     let calls = 0;
-    globalThis.fetch = vi.fn(async () => {
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () => {
       calls++;
       return new Response(JSON.stringify({ message: "boom" }), { status: 503, headers: { "content-type": "application/json" } });
     }) as typeof globalThis.fetch;
@@ -142,7 +142,7 @@ describe("CoolifyApiClient.request", () => {
   });
 
   it("throws (not silently returns undefined) when a 2xx body is non-JSON", async () => {
-    globalThis.fetch = vi.fn(async () =>
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () =>
       new Response("<html>proxy error</html>", { status: 200, headers: { "content-type": "text/html" } }),
     ) as typeof globalThis.fetch;
     const client = new CoolifyApiClient(BASE_CFG);
@@ -153,13 +153,13 @@ describe("CoolifyApiClient.request", () => {
 
   it("does NOT throw on an empty 2xx body (success with no content, e.g. a 204 DELETE)", async () => {
     // A successful empty-body response must not be reported as an error.
-    globalThis.fetch = vi.fn(async () => new Response("", { status: 200 })) as typeof globalThis.fetch;
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () => new Response("", { status: 200 })) as typeof globalThis.fetch;
     const client = new CoolifyApiClient(BASE_CFG);
     await expect(client.request("/applications/x", { method: "DELETE" })).resolves.toBe("");
   });
 
   it("returns the raw text body when allowNonJsonBody is set (version() path)", async () => {
-    globalThis.fetch = vi.fn(async () =>
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () =>
       new Response("4.1.2", { status: 200, headers: { "content-type": "text/plain" } }),
     ) as typeof globalThis.fetch;
     const client = new CoolifyApiClient(BASE_CFG);
@@ -170,7 +170,7 @@ describe("CoolifyApiClient.request", () => {
   it("retries on transient error and succeeds on second attempt", async () => {
     const okBody = { uuid: "xyz" };
     let calls = 0;
-    globalThis.fetch = vi.fn(async () => {
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () => {
       calls++;
       if (calls === 1) return new Response(JSON.stringify({ message: "err" }), { status: 500, headers: { "content-type": "application/json" } });
       return new Response(JSON.stringify(okBody), { status: 200, headers: { "content-type": "application/json" } });
@@ -251,7 +251,7 @@ describe("CoolifyApiClient.version", () => {
   });
 
   it("falls back to string body if version key absent", async () => {
-    globalThis.fetch = vi.fn(async () =>
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () =>
       new Response("4.0.0-beta.470", { status: 200, headers: { "content-type": "text/plain" } }),
     ) as typeof globalThis.fetch;
     const client = new CoolifyApiClient(BASE_CFG);
@@ -272,7 +272,7 @@ describe("CoolifyApiClient.resources", () => {
   });
 
   it("returns [] defensively if response body is a string (not array)", async () => {
-    globalThis.fetch = vi.fn(async () =>
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () =>
       new Response(JSON.stringify("some string"), { status: 200, headers: { "content-type": "application/json" } }),
     ) as typeof globalThis.fetch;
     const client = new CoolifyApiClient(BASE_CFG);

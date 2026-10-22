@@ -5,7 +5,7 @@ import type { BatchEnvelope } from "./batch.js";
 describe("runBatch", () => {
   it("returns a BatchEnvelope with correct totals for all-success case", async () => {
     const items = [1, 2, 3];
-    const worker = vi.fn(async (item: number) => item * 10);
+    const worker = vi.fn<(...args: any[]) => any>(async (item: number) => item * 10);
     const env: BatchEnvelope = await runBatch(items, 2, worker);
 
     expect(env.total).toBe(3);
@@ -19,7 +19,7 @@ describe("runBatch", () => {
 
   it("captures errors without short-circuiting", async () => {
     const items = ["a", "b", "c"];
-    const worker = vi.fn(async (item: string) => {
+    const worker = vi.fn<(...args: any[]) => any>(async (item: string) => {
       if (item === "b") throw new Error("b failed");
       return item.toUpperCase();
     });
@@ -47,7 +47,7 @@ describe("runBatch", () => {
     // Each item's delay is the item value ms — item[1]=10 finishes before item[0]=50
     let resolvers: Array<() => void> = [];
 
-    const worker = vi.fn(async (item: number, index: number) => {
+    const worker = vi.fn<(...args: any[]) => any>(async (item: number, index: number) => {
       await new Promise<void>((res) => {
         resolvers[index] = res;
       });
@@ -97,7 +97,7 @@ describe("runBatch", () => {
 
   it("handles concurrency greater than items length", async () => {
     const items = [1, 2];
-    const worker = vi.fn(async (item: number) => item * 2);
+    const worker = vi.fn<(...args: any[]) => any>(async (item: number) => item * 2);
     const env = await runBatch(items, 10, worker);
     expect(env.ok).toBe(2);
     expect(env.results[0].result).toBe(2);

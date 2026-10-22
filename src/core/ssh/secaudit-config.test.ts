@@ -7,8 +7,8 @@ import { TOOLS as hostTools } from "../../mcp/tools/host.js";
 function apiWith(servers: Record<string, unknown>[]) {
   return {
     servers: {
-      list: vi.fn(async () => servers),
-      get: vi.fn(async (u: string) => servers.find((s) => s.uuid === u) ?? Promise.reject({ kind: "not_found" })),
+      list: vi.fn<(...args: any[]) => any>(async () => servers),
+      get: vi.fn<(...args: any[]) => any>(async (u: string) => servers.find((s) => s.uuid === u) ?? Promise.reject({ kind: "not_found" })),
     },
   } as unknown as ConstructorParameters<typeof ServerResolver>[0];
 }

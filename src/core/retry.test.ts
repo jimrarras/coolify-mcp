@@ -46,11 +46,11 @@ describe("withRetry", () => {
 
   beforeEach(() => {
     sleepCalls = [];
-    sleep = vi.fn(async (ms: number) => { sleepCalls.push(ms); });
+    sleep = vi.fn<(...args: any[]) => any>(async (ms: number) => { sleepCalls.push(ms); });
   });
 
   it("resolves immediately if fn succeeds on the first attempt", async () => {
-    const fn = vi.fn(async () => "success");
+    const fn = vi.fn<(...args: any[]) => any>(async () => "success");
     const result = await withRetry(fn, {
       isRetryable: () => true,
       sleep,
@@ -62,7 +62,7 @@ describe("withRetry", () => {
 
   it("retries on retryable error and succeeds on second attempt", async () => {
     let calls = 0;
-    const fn = vi.fn(async () => {
+    const fn = vi.fn<(...args: any[]) => any>(async () => {
       calls++;
       if (calls === 1) throw new CoolifyError("transient_exhausted", "oops", { status: 503 });
       return "ok";
@@ -80,7 +80,7 @@ describe("withRetry", () => {
 
   it("applies exponential backoff", async () => {
     let calls = 0;
-    const fn = vi.fn(async () => {
+    const fn = vi.fn<(...args: any[]) => any>(async () => {
       calls++;
       if (calls < 4) throw new CoolifyError("transient_exhausted", "oops", { status: 503 });
       return "done";
@@ -97,7 +97,7 @@ describe("withRetry", () => {
 
   it("throws after maxAttempts are exhausted", async () => {
     const err = new CoolifyError("transient_exhausted", "always fails", { status: 503 });
-    const fn = vi.fn(async () => { throw err; });
+    const fn = vi.fn<(...args: any[]) => any>(async () => { throw err; });
     await expect(
       withRetry(fn, {
         maxAttempts: 3,
@@ -111,7 +111,7 @@ describe("withRetry", () => {
 
   it("does not retry if isRetryable returns false", async () => {
     const err = new CoolifyError("not_found", "not found", { status: 404 });
-    const fn = vi.fn(async () => { throw err; });
+    const fn = vi.fn<(...args: any[]) => any>(async () => { throw err; });
     await expect(
       withRetry(fn, {
         maxAttempts: 4,
@@ -126,7 +126,7 @@ describe("withRetry", () => {
 
   it("honors retryAfter from CoolifyError for sleep duration", async () => {
     let calls = 0;
-    const fn = vi.fn(async () => {
+    const fn = vi.fn<(...args: any[]) => any>(async () => {
       calls++;
       if (calls === 1) {
         throw new CoolifyError("transient_exhausted", "rate limited", { status: 429, retryAfter: 5 });
@@ -145,7 +145,7 @@ describe("withRetry", () => {
 
   it("caps an absurd retryAfter so a hostile header cannot pin the client", async () => {
     let calls = 0;
-    const fn = vi.fn(async () => {
+    const fn = vi.fn<(...args: any[]) => any>(async () => {
       calls++;
       if (calls === 1) {
         throw new CoolifyError("transient_exhausted", "rate limited", { status: 429, retryAfter: 86_400 });
@@ -160,7 +160,7 @@ describe("withRetry", () => {
 
   it("honors a legitimate medium Retry-After verbatim (not clipped to the exponential cap)", async () => {
     let calls = 0;
-    const fn = vi.fn(async () => {
+    const fn = vi.fn<(...args: any[]) => any>(async () => {
       calls++;
       if (calls === 1) {
         throw new CoolifyError("transient_exhausted", "rate limited", { status: 429, retryAfter: 60 });
@@ -174,7 +174,7 @@ describe("withRetry", () => {
   });
 
   it("defaults to maxAttempts=4", async () => {
-    const fn = vi.fn(async () => { throw new CoolifyError("transient_exhausted", "fail", { status: 503 }); });
+    const fn = vi.fn<(...args: any[]) => any>(async () => { throw new CoolifyError("transient_exhausted", "fail", { status: 503 }); });
     await expect(
       withRetry(fn, {
         isRetryable: isTransientCoolifyError,

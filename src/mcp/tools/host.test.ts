@@ -9,22 +9,22 @@ import type { InstanceConfig } from "../../core/config.js";
 
 function makeFakeHostOps(overrides: Partial<HostOps> = {}): HostOps {
   return {
-    rawExec: vi.fn(async () => ({ code: 0, stdout: "hello", stderr: "" })),
-    dockerExec: vi.fn(async () => ({ code: 0, stdout: "container-out", stderr: "" })),
-    dockerStream: vi.fn(async () => ({ code: 0 })),
-    psqlReadOnly: vi.fn(async () => "id\n1\n"),
-    readHostFile: vi.fn(async () => "file-contents"),
+    rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "hello", stderr: "" })),
+    dockerExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "container-out", stderr: "" })),
+    dockerStream: vi.fn<(...args: any[]) => any>(async () => ({ code: 0 })),
+    psqlReadOnly: vi.fn<(...args: any[]) => any>(async () => "id\n1\n"),
+    readHostFile: vi.fn<(...args: any[]) => any>(async () => "file-contents"),
     ...overrides,
   } as unknown as HostOps;
 }
 
 function makeFakeResolver(overrides: Partial<ServerResolver> = {}): ServerResolver {
   return {
-    resolveByServer: vi.fn(async () => ({
+    resolveByServer: vi.fn<(...args: any[]) => any>(async () => ({
       serverUuid: "serverabc",
       isCoolifyHost: true,
     })),
-    resolveByResource: vi.fn(async () => ({
+    resolveByResource: vi.fn<(...args: any[]) => any>(async () => ({
       serverUuid: "serverabc",
       isCoolifyHost: true,
     })),
@@ -82,7 +82,7 @@ describe("host.ts TOOLS export", () => {
 describe("ssh_exec", () => {
   it("accepts a hyphenated/dotted server NAME (documented UUID-or-name) and resolves it", async () => {
     const tool = getTool("ssh_exec");
-    const resolveByServer = vi.fn(async () => ({ serverUuid: "serverabc", isCoolifyHost: true }));
+    const resolveByServer = vi.fn<(...args: any[]) => any>(async () => ({ serverUuid: "serverabc", isCoolifyHost: true }));
     const ctx = makeCtx({
       enableHostOps: true,
       allowDestructive: true,
@@ -111,7 +111,7 @@ describe("ssh_exec", () => {
 
   it("runs command via rawExec and returns stdout/stderr/code", async () => {
     const fakeHostOps = makeFakeHostOps({
-      rawExec: vi.fn(async () => ({ code: 0, stdout: "total 8\n", stderr: "" })),
+      rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "total 8\n", stderr: "" })),
     });
     // R4: must now pass allowDestructive:true and confirm:true
     const ctx = makeCtx({ enableHostOps: true, allowDestructive: true, hostOpsImpl: fakeHostOps });
@@ -131,7 +131,7 @@ describe("ssh_exec", () => {
 
   it("returns partial when remote exit code != 0", async () => {
     const fakeHostOps = makeFakeHostOps({
-      rawExec: vi.fn(async () => ({ code: 1, stdout: "", stderr: "Permission denied" })),
+      rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 1, stdout: "", stderr: "Permission denied" })),
     });
     // R4: must now pass allowDestructive:true and confirm:true
     const ctx = makeCtx({ enableHostOps: true, allowDestructive: true, hostOpsImpl: fakeHostOps });
@@ -177,7 +177,7 @@ describe("docker_op", () => {
 
   it("runs non-destructive docker ps", async () => {
     const fakeHostOps = makeFakeHostOps({
-      dockerExec: vi.fn(async () => ({ code: 0, stdout: "CONTAINER ID\nabc123", stderr: "" })),
+      dockerExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "CONTAINER ID\nabc123", stderr: "" })),
     });
     const ctx = makeCtx({ enableHostOps: true, hostOpsImpl: fakeHostOps });
     const tool = getTool("docker_op");
@@ -206,7 +206,7 @@ describe("docker_op", () => {
 
   it("allows destructive action when allowDestructive=true and confirm=true", async () => {
     const fakeHostOps = makeFakeHostOps({
-      dockerExec: vi.fn(async () => ({ code: 0, stdout: "old-container", stderr: "" })),
+      dockerExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "old-container", stderr: "" })),
     });
     const ctx = makeCtx({ enableHostOps: true, allowDestructive: true, hostOpsImpl: fakeHostOps });
     const tool = getTool("docker_op");
@@ -367,7 +367,7 @@ describe("ssh_exec R4 destructive fence", () => {
   it("R4: blocked without --allow-destructive (allowDestructive=false)", async () => {
     // This test MUST FAIL against the unfixed code (ssh_exec had no destructive fence)
     const fakeHostOps = makeFakeHostOps({
-      rawExec: vi.fn(async () => ({ code: 0, stdout: "should-not-reach", stderr: "" })),
+      rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "should-not-reach", stderr: "" })),
     });
     const ctx = makeCtx({ enableHostOps: true, allowDestructive: false, hostOpsImpl: fakeHostOps });
     const tool = getTool("ssh_exec");
@@ -385,7 +385,7 @@ describe("ssh_exec R4 destructive fence", () => {
 
   it("R4: blocked when allowDestructive=true but confirm is not supplied", async () => {
     const fakeHostOps = makeFakeHostOps({
-      rawExec: vi.fn(async () => ({ code: 0, stdout: "should-not-reach", stderr: "" })),
+      rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "should-not-reach", stderr: "" })),
     });
     const ctx = makeCtx({ enableHostOps: true, allowDestructive: true, hostOpsImpl: fakeHostOps });
     const tool = getTool("ssh_exec");
@@ -402,7 +402,7 @@ describe("ssh_exec R4 destructive fence", () => {
 
   it("R4: blocked when allowDestructive=true but confirm=false", async () => {
     const fakeHostOps = makeFakeHostOps({
-      rawExec: vi.fn(async () => ({ code: 0, stdout: "should-not-reach", stderr: "" })),
+      rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "should-not-reach", stderr: "" })),
     });
     const ctx = makeCtx({ enableHostOps: true, allowDestructive: true, hostOpsImpl: fakeHostOps });
     const tool = getTool("ssh_exec");
@@ -419,7 +419,7 @@ describe("ssh_exec R4 destructive fence", () => {
 
   it("R4: dry_run=true returns preview without executing rawExec", async () => {
     const fakeHostOps = makeFakeHostOps({
-      rawExec: vi.fn(async () => ({ code: 0, stdout: "should-not-reach", stderr: "" })),
+      rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "should-not-reach", stderr: "" })),
     });
     const ctx = makeCtx({ enableHostOps: true, allowDestructive: true, hostOpsImpl: fakeHostOps });
     const tool = getTool("ssh_exec");
@@ -440,7 +440,7 @@ describe("ssh_exec R4 destructive fence", () => {
 
   it("R4: executes when allowDestructive=true and confirm=true", async () => {
     const fakeHostOps = makeFakeHostOps({
-      rawExec: vi.fn(async () => ({ code: 0, stdout: "hello from server", stderr: "" })),
+      rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "hello from server", stderr: "" })),
     });
     const ctx = makeCtx({ enableHostOps: true, allowDestructive: true, hostOpsImpl: fakeHostOps });
     const tool = getTool("ssh_exec");
@@ -502,7 +502,7 @@ describe("query_coolify_db", () => {
 
   it("runs psqlReadOnly and returns rows string", async () => {
     const fakeHostOps = makeFakeHostOps({
-      psqlReadOnly: vi.fn(async () => "id | name\n---+-----\n 1 | test"),
+      psqlReadOnly: vi.fn<(...args: any[]) => any>(async () => "id | name\n---+-----\n 1 | test"),
     });
     const ctx = makeCtx({ enableHostOps: true, hostOpsImpl: fakeHostOps });
     const tool = getTool("query_coolify_db");
@@ -527,7 +527,7 @@ describe("query_coolify_db", () => {
   it("forwards CoolifyError when psqlReadOnly rejects (e.g. non-SELECT)", async () => {
     const { CoolifyError } = await import("../../core/errors.js");
     const fakeHostOps = makeFakeHostOps({
-      psqlReadOnly: vi.fn(async () => {
+      psqlReadOnly: vi.fn<(...args: any[]) => any>(async () => {
         throw new CoolifyError("invalid_input", "Only SELECT queries are permitted");
       }),
     });
@@ -557,7 +557,7 @@ describe("read_host_file", () => {
 
   it("reads allowed file and returns contents", async () => {
     const fakeHostOps = makeFakeHostOps({
-      readHostFile: vi.fn(async () => "APP_ID=abc\nSECRET=***"),
+      readHostFile: vi.fn<(...args: any[]) => any>(async () => "APP_ID=abc\nSECRET=***"),
     });
     const ctx = makeCtx({ enableHostOps: true, hostOpsImpl: fakeHostOps });
     const tool = getTool("read_host_file");
@@ -572,7 +572,7 @@ describe("read_host_file", () => {
   it("forwards error when readHostFile rejects (path not allowed)", async () => {
     const { CoolifyError } = await import("../../core/errors.js");
     const fakeHostOps = makeFakeHostOps({
-      readHostFile: vi.fn(async () => {
+      readHostFile: vi.fn<(...args: any[]) => any>(async () => {
         throw new CoolifyError("invalid_input", "Path not in allowed prefixes");
       }),
     });

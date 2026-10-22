@@ -45,7 +45,7 @@ describe("deploy_watch tool", () => {
     ];
 
     let deployFetchCount = 0;
-    globalThis.fetch = vi.fn(async (url: string) => {
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async (url: string) => {
       const u = String(url);
       if (u.includes("/deployments/dep1")) {
         deployFetchCount++;
@@ -65,7 +65,7 @@ describe("deploy_watch tool", () => {
     const api = new CoolifyApiClient({ baseUrl: "http://localhost", token: "1|secret", extraHeaders: {} });
 
     const notifier = {
-      sendNotification: vi.fn(async () => {}),
+      sendNotification: vi.fn<(...args: any[]) => any>(async () => {}),
     };
 
     const ctx = makeCtx({ api, notifier, progressToken: "tok1", config: { ...makeCtx().config, allowDestructive: true } as any });
@@ -90,7 +90,7 @@ describe("deploy_watch tool", () => {
     ];
 
     let depCallCount = 0;
-    globalThis.fetch = vi.fn(async (url: string) => {
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async (url: string) => {
       const u = String(url);
       if (u.includes("/deployments/dep2")) {
         depCallCount++;
@@ -108,7 +108,7 @@ describe("deploy_watch tool", () => {
 
     const { CoolifyApiClient } = await import("../../core/api/client.js");
     const api = new CoolifyApiClient({ baseUrl: "http://localhost", token: "1|secret", extraHeaders: {} });
-    const sendNotification = vi.fn(async () => {});
+    const sendNotification = vi.fn<(...args: any[]) => any>(async () => {});
     const ctx = makeCtx({ api, notifier: { sendNotification }, progressToken: "tok2", config: { ...makeCtx().config, allowDestructive: true } as any });
 
     const { TOOLS } = await import("./deploy.js");

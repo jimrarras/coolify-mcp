@@ -12,7 +12,7 @@ function makeCtx(overrides?: {
 }): ToolContext {
   const appLogsImpl =
     overrides?.appLogsImpl ??
-    vi.fn(async (_uuid: string, _lines: number) => ({ logs: "line1\nline2\nline3" }));
+    vi.fn<(...args: any[]) => any>(async (_uuid: string, _lines: number) => ({ logs: "line1\nline2\nline3" }));
 
   return {
     api: {
@@ -59,14 +59,14 @@ describe("get_logs kind:application", () => {
   });
 
   it("passes custom lines to the API", async () => {
-    const mockLogs = vi.fn(async (_uuid: string, _lines: number) => ({ logs: "x" }));
+    const mockLogs = vi.fn<(...args: any[]) => any>(async (_uuid: string, _lines: number) => ({ logs: "x" }));
     const ctx = makeCtx({ appLogsImpl: mockLogs });
     await getLogs.handler({ kind: "application", uuid: "appuuid1", lines: 50 }, ctx);
     expect(mockLogs).toHaveBeenCalledWith("appuuid1", 50);
   });
 
   it("defaults lines to 100", async () => {
-    const mockLogs = vi.fn(async (_uuid: string, _lines: number) => ({ logs: "" }));
+    const mockLogs = vi.fn<(...args: any[]) => any>(async (_uuid: string, _lines: number) => ({ logs: "" }));
     const ctx = makeCtx({ appLogsImpl: mockLogs });
     await getLogs.handler({ kind: "application", uuid: "appuuid1" }, ctx);
     expect(mockLogs).toHaveBeenCalledWith("appuuid1", 100);

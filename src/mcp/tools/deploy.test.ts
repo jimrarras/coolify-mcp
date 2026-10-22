@@ -36,7 +36,7 @@ describe("deploy tool", () => {
   }
 
   it("triggers a deploy and returns ok with deployment info", async () => {
-    globalThis.fetch = vi.fn(async (url: string) => {
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async (url: string) => {
       if (String(url).includes("/deploy")) {
         return new Response(JSON.stringify(fakeTriggerResult), { status: 200, headers: { "content-type": "application/json" } });
       }
@@ -68,7 +68,7 @@ describe("deploy tool", () => {
   });
 
   it("get_deployments returns list of active deployments", async () => {
-    globalThis.fetch = vi.fn(async (url: string) => {
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async (url: string) => {
       if (String(url).includes("/deployments")) {
         return new Response(JSON.stringify(fakeDeployments), { status: 200, headers: { "content-type": "application/json" } });
       }
@@ -90,7 +90,7 @@ describe("deploy tool", () => {
   });
 
   it("get_deployments with app_uuid returns deployment history", async () => {
-    globalThis.fetch = vi.fn(async () =>
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () =>
       new Response(JSON.stringify(fakeDeployments), { status: 200, headers: { "content-type": "application/json" } })
     ) as any;
 
@@ -139,7 +139,7 @@ describe("deploy tool", () => {
   });
 
   it("cancel_deployment cancels a deployment and returns ok when allowed + confirmed", async () => {
-    globalThis.fetch = vi.fn(async () =>
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () =>
       new Response(
         JSON.stringify({ deployment_uuid: "dep456xyz", status: "cancelled" }),
         { status: 200, headers: { "content-type": "application/json" } }
@@ -211,7 +211,7 @@ describe("deploy tool", () => {
   });
 
   it("deploy: succeeds when allowDestructive=true and confirm=true", async () => {
-    globalThis.fetch = vi.fn(async (url: string) => {
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async (url: string) => {
       if (String(url).includes("/deploy")) {
         return new Response(JSON.stringify(fakeTriggerResult), { status: 200, headers: { "content-type": "application/json" } });
       }
@@ -256,7 +256,7 @@ describe("deploy tool", () => {
   });
 
   async function runWatchToStatus(deploymentStatus: string) {
-    globalThis.fetch = vi.fn(async (url: string) => {
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async (url: string) => {
       const u = String(url);
       // /deployments/{uuid} (poll) must be checked before /deploy (trigger).
       if (u.includes("/deployments/")) {

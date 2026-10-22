@@ -19,7 +19,7 @@ describe("withHeartbeat", () => {
   });
 
   it("sends notifications at intervalMs when notifier has sendNotification", async () => {
-    const sendNotification = vi.fn(async (_n: { method: string; params?: unknown }) => {});
+    const sendNotification = vi.fn<(...args: any[]) => any>(async (_n: { method: string; params?: unknown }) => {});
     const notifier: Notifier = { sendNotification };
 
     let resolve!: (v: string) => void;
@@ -44,7 +44,7 @@ describe("withHeartbeat", () => {
   });
 
   it("clears the interval when fn resolves", async () => {
-    const sendNotification = vi.fn(async () => {});
+    const sendNotification = vi.fn<(...args: any[]) => any>(async () => {});
     const notifier: Notifier = { sendNotification };
 
     const p = withHeartbeat(
@@ -61,7 +61,7 @@ describe("withHeartbeat", () => {
   });
 
   it("clears the interval when fn rejects", async () => {
-    const sendNotification = vi.fn(async () => {});
+    const sendNotification = vi.fn<(...args: any[]) => any>(async () => {});
     const notifier: Notifier = { sendNotification };
 
     let reject!: (e: Error) => void;
@@ -95,7 +95,7 @@ describe("withHeartbeat", () => {
   });
 
   it("uses default intervalMs of 15000 when not specified", async () => {
-    const sendNotification = vi.fn(async () => {});
+    const sendNotification = vi.fn<(...args: any[]) => any>(async () => {});
     const notifier: Notifier = { sendNotification };
 
     let resolve!: (v: number) => void;
@@ -116,7 +116,7 @@ describe("withHeartbeat", () => {
   });
 
   it("includes logger name in notification params", async () => {
-    const sendNotification = vi.fn(async (_n: { method: string; params?: unknown }) => {});
+    const sendNotification = vi.fn<(...args: any[]) => any>(async (_n: { method: string; params?: unknown }) => {});
     const notifier: Notifier = { sendNotification };
 
     let resolve!: (v: string) => void;

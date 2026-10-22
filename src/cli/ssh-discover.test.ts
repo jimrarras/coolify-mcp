@@ -49,7 +49,7 @@ describe("scanSshDir", () => {
 
 describe("discoverWorkingKey", () => {
   it("returns the first OpenSSH key that connects", async () => {
-    const tryKey = vi.fn(async (p: string) => { if (p !== "/good") throw new Error("auth"); });
+    const tryKey = vi.fn<(...args: any[]) => any>(async (p: string) => { if (p !== "/good") throw new Error("auth"); });
     const r = await discoverWorkingKey({
       candidates: [{ path: "/bad", kind: "openssh" }, { path: "/good", kind: "openssh" }],
       tryKey, askPassphrase: async () => "",
@@ -57,7 +57,7 @@ describe("discoverWorkingKey", () => {
     expect(r).toEqual({ path: "/good" });
   });
   it("retries an encrypted key with a passphrase", async () => {
-    const tryKey = vi.fn(async (_p: string, pass?: string) => { if (!pass) throw new Error("no passphrase"); });
+    const tryKey = vi.fn<(...args: any[]) => any>(async (_p: string, pass?: string) => { if (!pass) throw new Error("no passphrase"); });
     const r = await discoverWorkingKey({
       candidates: [{ path: "/enc", kind: "openssh" }],
       tryKey, askPassphrase: async () => "pw",
@@ -65,7 +65,7 @@ describe("discoverWorkingKey", () => {
     expect(r).toEqual({ path: "/enc", passphrase: "pw" });
   });
   it("signals ppkOnly when only a .ppk is present", async () => {
-    const r = await discoverWorkingKey({ candidates: [{ path: "/x.ppk", kind: "ppk" }], tryKey: vi.fn(), askPassphrase: async () => "" });
+    const r = await discoverWorkingKey({ candidates: [{ path: "/x.ppk", kind: "ppk" }], tryKey: vi.fn<(...args: any[]) => any>(), askPassphrase: async () => "" });
     expect(r).toEqual({ ppkOnly: true });
   });
   it("returns null when nothing works", async () => {

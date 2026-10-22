@@ -21,15 +21,15 @@ function makeCtx(overrides?: {
   }>;
 }): ToolContext {
   const defaultProjects = {
-    list: vi.fn(async () => [{ uuid: "abc123", name: "myproj" }]),
-    get: vi.fn(async (_uuid: string) => ({ uuid: "abc123", name: "myproj", environments: [] })),
-    create: vi.fn(async (_body: { name: string; description?: string }) => ({ uuid: "newuuid1" })),
-    update: vi.fn(async (_uuid: string, _body: Record<string, unknown>) => ({ uuid: "abc123", name: "updated" })),
-    delete: vi.fn(async (_uuid: string) => ({ message: "Project deleted." })),
-    listEnvironments: vi.fn(async (_uuid: string) => [{ name: "production", uuid: "envuuid1" }]),
-    createEnvironment: vi.fn(async (_uuid: string, _body: { name: string }) => ({ name: "staging" })),
-    getEnvironment: vi.fn(async (_uuid: string, _nameOrUuid: string) => ({ name: "production", uuid: "envuuid1" })),
-    deleteEnvironment: vi.fn(async (_uuid: string, _nameOrUuid: string) => ({ message: "Environment deleted." })),
+    list: vi.fn<(...args: any[]) => any>(async () => [{ uuid: "abc123", name: "myproj" }]),
+    get: vi.fn<(...args: any[]) => any>(async (_uuid: string) => ({ uuid: "abc123", name: "myproj", environments: [] })),
+    create: vi.fn<(...args: any[]) => any>(async (_body: { name: string; description?: string }) => ({ uuid: "newuuid1" })),
+    update: vi.fn<(...args: any[]) => any>(async (_uuid: string, _body: Record<string, unknown>) => ({ uuid: "abc123", name: "updated" })),
+    delete: vi.fn<(...args: any[]) => any>(async (_uuid: string) => ({ message: "Project deleted." })),
+    listEnvironments: vi.fn<(...args: any[]) => any>(async (_uuid: string) => [{ name: "production", uuid: "envuuid1" }]),
+    createEnvironment: vi.fn<(...args: any[]) => any>(async (_uuid: string, _body: { name: string }) => ({ name: "staging" })),
+    getEnvironment: vi.fn<(...args: any[]) => any>(async (_uuid: string, _nameOrUuid: string) => ({ name: "production", uuid: "envuuid1" })),
+    deleteEnvironment: vi.fn<(...args: any[]) => any>(async (_uuid: string, _nameOrUuid: string) => ({ message: "Environment deleted." })),
     ...overrides?.projects,
   };
 

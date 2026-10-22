@@ -13,82 +13,82 @@ function makeApi(overrides: Partial<{
 }>): CoolifyApiClient {
   return {
     servers: {
-      get: overrides.serversGet ?? vi.fn(),
-      list: overrides.serversList ?? vi.fn(),
-      validate: vi.fn(),
-      resources: vi.fn(),
-      domains: vi.fn(),
-      create: vi.fn(),
-      createHetzner: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
+      get: overrides.serversGet ?? vi.fn<(...args: any[]) => any>(),
+      list: overrides.serversList ?? vi.fn<(...args: any[]) => any>(),
+      validate: vi.fn<(...args: any[]) => any>(),
+      resources: vi.fn<(...args: any[]) => any>(),
+      domains: vi.fn<(...args: any[]) => any>(),
+      create: vi.fn<(...args: any[]) => any>(),
+      createHetzner: vi.fn<(...args: any[]) => any>(),
+      update: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
     },
     applications: {
-      get: overrides.applicationsGet ?? vi.fn(),
-      list: vi.fn(),
-      createPublic: vi.fn(),
-      createPrivateGithubApp: vi.fn(),
-      createPrivateDeployKey: vi.fn(),
-      createDockerfile: vi.fn(),
-      createDockerimage: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      control: vi.fn(),
-      logs: vi.fn(),
-      listEnvs: vi.fn(),
-      upsertEnvsBulk: vi.fn(),
-      deleteEnv: vi.fn(),
-      listStorages: vi.fn(),
-      createStorage: vi.fn(),
-      updateStorage: vi.fn(),
-      deleteStorage: vi.fn(),
-      listScheduledTasks: vi.fn(),
-      createScheduledTask: vi.fn(),
-      updateScheduledTask: vi.fn(),
-      deleteScheduledTask: vi.fn(),
-      scheduledTaskExecutions: vi.fn(),
-      deletePreview: vi.fn(),
+      get: overrides.applicationsGet ?? vi.fn<(...args: any[]) => any>(),
+      list: vi.fn<(...args: any[]) => any>(),
+      createPublic: vi.fn<(...args: any[]) => any>(),
+      createPrivateGithubApp: vi.fn<(...args: any[]) => any>(),
+      createPrivateDeployKey: vi.fn<(...args: any[]) => any>(),
+      createDockerfile: vi.fn<(...args: any[]) => any>(),
+      createDockerimage: vi.fn<(...args: any[]) => any>(),
+      update: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
+      control: vi.fn<(...args: any[]) => any>(),
+      logs: vi.fn<(...args: any[]) => any>(),
+      listEnvs: vi.fn<(...args: any[]) => any>(),
+      upsertEnvsBulk: vi.fn<(...args: any[]) => any>(),
+      deleteEnv: vi.fn<(...args: any[]) => any>(),
+      listStorages: vi.fn<(...args: any[]) => any>(),
+      createStorage: vi.fn<(...args: any[]) => any>(),
+      updateStorage: vi.fn<(...args: any[]) => any>(),
+      deleteStorage: vi.fn<(...args: any[]) => any>(),
+      listScheduledTasks: vi.fn<(...args: any[]) => any>(),
+      createScheduledTask: vi.fn<(...args: any[]) => any>(),
+      updateScheduledTask: vi.fn<(...args: any[]) => any>(),
+      deleteScheduledTask: vi.fn<(...args: any[]) => any>(),
+      scheduledTaskExecutions: vi.fn<(...args: any[]) => any>(),
+      deletePreview: vi.fn<(...args: any[]) => any>(),
     },
     databases: {
-      get: overrides.databasesGet ?? vi.fn(),
-      list: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      control: vi.fn(),
-      listEnvs: vi.fn(),
-      upsertEnvsBulk: vi.fn(),
-      deleteEnv: vi.fn(),
-      listStorages: vi.fn(),
-      createStorage: vi.fn(),
-      updateStorage: vi.fn(),
-      deleteStorage: vi.fn(),
-      listBackups: vi.fn(),
-      createBackup: vi.fn(),
-      updateBackup: vi.fn(),
-      deleteBackup: vi.fn(),
-      backupExecutions: vi.fn(),
-      deleteBackupExecution: vi.fn(),
+      get: overrides.databasesGet ?? vi.fn<(...args: any[]) => any>(),
+      list: vi.fn<(...args: any[]) => any>(),
+      create: vi.fn<(...args: any[]) => any>(),
+      update: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
+      control: vi.fn<(...args: any[]) => any>(),
+      listEnvs: vi.fn<(...args: any[]) => any>(),
+      upsertEnvsBulk: vi.fn<(...args: any[]) => any>(),
+      deleteEnv: vi.fn<(...args: any[]) => any>(),
+      listStorages: vi.fn<(...args: any[]) => any>(),
+      createStorage: vi.fn<(...args: any[]) => any>(),
+      updateStorage: vi.fn<(...args: any[]) => any>(),
+      deleteStorage: vi.fn<(...args: any[]) => any>(),
+      listBackups: vi.fn<(...args: any[]) => any>(),
+      createBackup: vi.fn<(...args: any[]) => any>(),
+      updateBackup: vi.fn<(...args: any[]) => any>(),
+      deleteBackup: vi.fn<(...args: any[]) => any>(),
+      backupExecutions: vi.fn<(...args: any[]) => any>(),
+      deleteBackupExecution: vi.fn<(...args: any[]) => any>(),
     },
     services: {
-      get: overrides.servicesGet ?? vi.fn(),
-      list: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      control: vi.fn(),
-      listEnvs: vi.fn(),
-      upsertEnvsBulk: vi.fn(),
-      deleteEnv: vi.fn(),
-      listStorages: vi.fn(),
-      createStorage: vi.fn(),
-      updateStorage: vi.fn(),
-      deleteStorage: vi.fn(),
-      listScheduledTasks: vi.fn(),
-      createScheduledTask: vi.fn(),
-      updateScheduledTask: vi.fn(),
-      deleteScheduledTask: vi.fn(),
-      scheduledTaskExecutions: vi.fn(),
+      get: overrides.servicesGet ?? vi.fn<(...args: any[]) => any>(),
+      list: vi.fn<(...args: any[]) => any>(),
+      create: vi.fn<(...args: any[]) => any>(),
+      update: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
+      control: vi.fn<(...args: any[]) => any>(),
+      listEnvs: vi.fn<(...args: any[]) => any>(),
+      upsertEnvsBulk: vi.fn<(...args: any[]) => any>(),
+      deleteEnv: vi.fn<(...args: any[]) => any>(),
+      listStorages: vi.fn<(...args: any[]) => any>(),
+      createStorage: vi.fn<(...args: any[]) => any>(),
+      updateStorage: vi.fn<(...args: any[]) => any>(),
+      deleteStorage: vi.fn<(...args: any[]) => any>(),
+      listScheduledTasks: vi.fn<(...args: any[]) => any>(),
+      createScheduledTask: vi.fn<(...args: any[]) => any>(),
+      updateScheduledTask: vi.fn<(...args: any[]) => any>(),
+      deleteScheduledTask: vi.fn<(...args: any[]) => any>(),
+      scheduledTaskExecutions: vi.fn<(...args: any[]) => any>(),
     },
   } as unknown as CoolifyApiClient;
 }
@@ -115,8 +115,8 @@ const remoteServerRecord = {
 function apiWith(servers: Record<string, unknown>[]) {
   return {
     servers: {
-      list: vi.fn(async () => servers),
-      get: vi.fn(async (u: string) => {
+      list: vi.fn<(...args: any[]) => any>(async () => servers),
+      get: vi.fn<(...args: any[]) => any>(async (u: string) => {
         const found = servers.find((s) => s.uuid === u);
         if (!found) return Promise.reject(Object.assign(new Error("not_found"), { kind: "not_found" }));
         return found;
@@ -205,11 +205,11 @@ describe("ServerResolver", () => {
 
   describe("resolveByResource() caching", () => {
     it("calls the API only once for a repeated resource lookup", async () => {
-      const appGet = vi.fn(async (_uuid: string) => ({
+      const appGet = vi.fn<(...args: any[]) => any>(async (_uuid: string) => ({
         uuid: "app003",
         server_uuid: COOLIFY_HOST_UUID,
       }));
-      const serverGet = vi.fn(async (_uuid: string) => coolifyHostServerRecord);
+      const serverGet = vi.fn<(...args: any[]) => any>(async (_uuid: string) => coolifyHostServerRecord);
 
       const api = makeApi({ applicationsGet: appGet, serversGet: serverGet });
       const resolver = new ServerResolver(api);
@@ -356,13 +356,13 @@ describe("ServerResolver", () => {
     });
 
     it("falls back to listing servers and matching by name when UUID lookup returns not_found", async () => {
-      const serverGetFn = vi.fn(async (uuid: string) => {
+      const serverGetFn = vi.fn<(...args: any[]) => any>(async (uuid: string) => {
         if (uuid === "my-server-name") {
           throw Object.assign(new Error("not found"), { kind: "not_found" });
         }
         return remoteServerRecord;
       });
-      const serverListFn = vi.fn(async () => [
+      const serverListFn = vi.fn<(...args: any[]) => any>(async () => [
         { ...remoteServerRecord, name: "my-server-name" },
       ]);
 
@@ -383,10 +383,10 @@ describe("ServerResolver", () => {
     });
 
     it("throws when no server matches by name either", async () => {
-      const serverGetFn = vi.fn(async (_uuid: string) => {
+      const serverGetFn = vi.fn<(...args: any[]) => any>(async (_uuid: string) => {
         throw Object.assign(new Error("not found"), { kind: "not_found" });
       });
-      const serverListFn = vi.fn(async () => [
+      const serverListFn = vi.fn<(...args: any[]) => any>(async () => [
         { uuid: "other", name: "other-server", ip: "5.5.5.5", user: "root" },
       ]);
 

@@ -9,7 +9,7 @@ import type { InstanceConfig } from "../../core/config.js";
 
 function makeHostOps(overrides: Partial<HostOps> = {}): HostOps {
   return {
-    dockerStream: vi.fn(async (
+    dockerStream: vi.fn<(...args: any[]) => any>(async (
       _target: unknown,
       _dockerArgs: string,
       onLine: (l: string) => void,
@@ -19,21 +19,21 @@ function makeHostOps(overrides: Partial<HostOps> = {}): HostOps {
       onLine("2024-01-01T00:00:01Z line-two");
       return { code: 0 };
     }),
-    dockerExec: vi.fn(async () => ({ code: 0, stdout: "", stderr: "" })),
-    rawExec: vi.fn(async () => ({ code: 0, stdout: "", stderr: "" })),
-    psqlReadOnly: vi.fn(async () => ""),
-    readHostFile: vi.fn(async () => ""),
+    dockerExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "", stderr: "" })),
+    rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "", stderr: "" })),
+    psqlReadOnly: vi.fn<(...args: any[]) => any>(async () => ""),
+    readHostFile: vi.fn<(...args: any[]) => any>(async () => ""),
     ...overrides,
   } as unknown as HostOps;
 }
 
 function makeResolver(overrides: Partial<ServerResolver> = {}): ServerResolver {
   return {
-    resolveByResource: vi.fn(async () => ({
+    resolveByResource: vi.fn<(...args: any[]) => any>(async () => ({
       serverUuid: "serverabc",
       isCoolifyHost: true,
     })),
-    resolveByServer: vi.fn(async () => ({
+    resolveByServer: vi.fn<(...args: any[]) => any>(async () => ({
       serverUuid: "serverabc",
       isCoolifyHost: true,
     })),
@@ -114,10 +114,10 @@ describe("stream_logs", () => {
   it("streams lines and returns them in result with line count", async () => {
     const notifications: unknown[] = [];
     const notifier = {
-      sendNotification: vi.fn(async (n: unknown) => { notifications.push(n); }),
+      sendNotification: vi.fn<(...args: any[]) => any>(async (n: unknown) => { notifications.push(n); }),
     };
     const fakeHostOps = makeHostOps({
-      dockerStream: vi.fn(async (
+      dockerStream: vi.fn<(...args: any[]) => any>(async (
         _target: unknown,
         _dockerArgs: string,
         onLine: (l: string) => void,
@@ -147,12 +147,12 @@ describe("stream_logs", () => {
   it("sends progress notifications as lines arrive", async () => {
     const sentNotifications: unknown[] = [];
     const notifier = {
-      sendNotification: vi.fn(async (n: unknown) => { sentNotifications.push(n); }),
+      sendNotification: vi.fn<(...args: any[]) => any>(async (n: unknown) => { sentNotifications.push(n); }),
     };
     // Inject custom dockerStream that emits NOTIFY_INTERVAL+1 lines to trigger a notification
     const NOTIFY_INTERVAL = 25;
     const fakeHostOps = makeHostOps({
-      dockerStream: vi.fn(async (
+      dockerStream: vi.fn<(...args: any[]) => any>(async (
         _target: unknown,
         _dockerArgs: string,
         onLine: (l: string) => void,
@@ -176,7 +176,7 @@ describe("stream_logs", () => {
 
   it("enforces MAX_LINES hard cap (1000)", async () => {
     const fakeHostOps = makeHostOps({
-      dockerStream: vi.fn(async (
+      dockerStream: vi.fn<(...args: any[]) => any>(async (
         _target: unknown,
         _dockerArgs: string,
         onLine: (l: string) => void,
@@ -205,7 +205,7 @@ describe("stream_logs", () => {
 
   it("uses resolveByResource to find the target server", async () => {
     const resolverImpl = makeResolver({
-      resolveByResource: vi.fn(async () => ({
+      resolveByResource: vi.fn<(...args: any[]) => any>(async () => ({
         serverUuid: "custom-server",
         isCoolifyHost: false,
         dockerHost: "ssh://root@10.0.0.1",
@@ -224,7 +224,7 @@ describe("stream_logs", () => {
   it("returns partial with abort reason when AbortSignal fires before stream ends", async () => {
     let capturedSignal: AbortSignal | null = null;
     const fakeHostOps = makeHostOps({
-      dockerStream: vi.fn(async (
+      dockerStream: vi.fn<(...args: any[]) => any>(async (
         _target: unknown,
         _dockerArgs: string,
         onLine: (l: string) => void,

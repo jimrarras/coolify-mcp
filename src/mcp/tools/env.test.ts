@@ -8,19 +8,19 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
     api: {
       applications: {
-        listEnvs: vi.fn(),
-        upsertEnvsBulk: vi.fn(),
-        deleteEnv: vi.fn(),
+        listEnvs: vi.fn<(...args: any[]) => any>(),
+        upsertEnvsBulk: vi.fn<(...args: any[]) => any>(),
+        deleteEnv: vi.fn<(...args: any[]) => any>(),
       },
       databases: {
-        listEnvs: vi.fn(),
-        upsertEnvsBulk: vi.fn(),
-        deleteEnv: vi.fn(),
+        listEnvs: vi.fn<(...args: any[]) => any>(),
+        upsertEnvsBulk: vi.fn<(...args: any[]) => any>(),
+        deleteEnv: vi.fn<(...args: any[]) => any>(),
       },
       services: {
-        listEnvs: vi.fn(),
-        upsertEnvsBulk: vi.fn(),
-        deleteEnv: vi.fn(),
+        listEnvs: vi.fn<(...args: any[]) => any>(),
+        upsertEnvsBulk: vi.fn<(...args: any[]) => any>(),
+        deleteEnv: vi.fn<(...args: any[]) => any>(),
       },
     } as unknown as ToolContext["api"],
     config: {

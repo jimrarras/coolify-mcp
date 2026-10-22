@@ -29,19 +29,19 @@ describe("checkApi", () => {
 
 describe("checkControlHost", () => {
   it("skips when host-ops disabled", async () => {
-    const r = await checkControlHost({ resolveControlHost: vi.fn() }, "https://h", false);
+    const r = await checkControlHost({ resolveControlHost: vi.fn<(...args: any[]) => any>() }, "https://h", false);
     expect(r.status).toBe("skip");
   });
 
   it("ok and reports the resolved host", async () => {
-    const resolver = { resolveControlHost: vi.fn(async () => ({ serverUuid: "s", host: "coolify.example.com", user: "root", port: 22 })) };
+    const resolver = { resolveControlHost: vi.fn<(...args: any[]) => any>(async () => ({ serverUuid: "s", host: "coolify.example.com", user: "root", port: 22 })) };
     const r = await checkControlHost(resolver, "https://coolify.example.com", true);
     expect(r.status).toBe("ok");
     expect(r.detail).toContain("root@coolify.example.com:22");
   });
 
   it("fail with hostServer fix when resolution throws", async () => {
-    const resolver = { resolveControlHost: vi.fn(async () => { throw new Error("ambiguous"); }) };
+    const resolver = { resolveControlHost: vi.fn<(...args: any[]) => any>(async () => { throw new Error("ambiguous"); }) };
     const r = await checkControlHost(resolver, "https://h", true);
     expect(r.status).toBe("fail");
     expect(r.fix).toMatch(/ssh\.hostServer/);
@@ -89,7 +89,7 @@ describe("checkSsh", () => {
 
 describe("checkDbRole", () => {
   it("skips when no db.readonlyUser", async () => {
-    const inst = { config: { enableHostOps: true, db: undefined }, hostOps: vi.fn() } as never;
+    const inst = { config: { enableHostOps: true, db: undefined }, hostOps: vi.fn<(...args: any[]) => any>() } as never;
     expect((await checkDbRole(inst, true)).status).toBe("skip");
   });
   it("ok when SELECT 1 works", async () => {
@@ -110,8 +110,8 @@ describe("runAllChecks", () => {
       name: "default",
       config: { baseUrl: "https://h", enableHostOps: false, db: undefined, ssh: undefined },
       api: { health: async () => "OK", version: async () => "4.1.2" },
-      resolver: { resolveControlHost: vi.fn() },
-      hostOps: vi.fn(),
+      resolver: { resolveControlHost: vi.fn<(...args: any[]) => any>() },
+      hostOps: vi.fn<(...args: any[]) => any>(),
     } as never;
     const names = (await runAllChecks(inst, async () => {})).map((r) => r.name);
     expect(names).toEqual(["api", "control_host", "ssh", "db_role"]);

@@ -6,7 +6,7 @@ import type { ApiConfig } from "../config.js";
 const CFG: ApiConfig = { baseUrl: "https://cool.example.com", token: "1|tok", extraHeaders: {} };
 
 function makeClient(status: number, body: unknown, headers: Record<string, string> = {}): CoolifyApiClient {
-  globalThis.fetch = vi.fn(async () =>
+  globalThis.fetch = vi.fn<(...args: any[]) => any>(async () =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } }),
   ) as typeof globalThis.fetch;
   return new CoolifyApiClient(CFG, { maxAttempts: 1, baseDelayMs: 0 });
@@ -60,7 +60,7 @@ describe("DeploymentsApi.trigger", () => {
   // deploy must NOT be retried, or the client would queue duplicate deployments.
   it("does NOT retry POST /deploy on a transient 5xx", async () => {
     let calls = 0;
-    globalThis.fetch = vi.fn(async () =>
+    globalThis.fetch = vi.fn<(...args: any[]) => any>(async () =>
       (calls++, new Response(JSON.stringify({ message: "bad gateway" }), { status: 502, headers: { "content-type": "application/json" } })),
     ) as typeof globalThis.fetch;
     const client = new CoolifyApiClient(CFG, { maxAttempts: 4, baseDelayMs: 0, sleep: async () => {} });

@@ -22,11 +22,11 @@ function makeSsh(overrides: Partial<{
   readFile: (path: string, allowedPrefixes?: string[]) => Promise<string>;
 }> = {}): SshClient {
   return {
-    connect: vi.fn(),
-    exec: overrides.exec ?? vi.fn(async () => ({ code: 0, stdout: "", stderr: "" })),
-    streamExec: overrides.streamExec ?? vi.fn(async () => ({ code: 0 })),
-    readFile: overrides.readFile ?? vi.fn(async () => ""),
-    close: vi.fn(),
+    connect: vi.fn<(...args: any[]) => any>(),
+    exec: overrides.exec ?? vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "", stderr: "" })),
+    streamExec: overrides.streamExec ?? vi.fn<(...args: any[]) => any>(async () => ({ code: 0 })),
+    readFile: overrides.readFile ?? vi.fn<(...args: any[]) => any>(async () => ""),
+    close: vi.fn<(...args: any[]) => any>(),
   } as unknown as SshClient;
 }
 
@@ -52,7 +52,7 @@ describe("ALLOWED_HOST_FILE_PREFIXES", () => {
 
 describe("HostOps.dockerExec()", () => {
   it("runs docker without -H on the coolify host", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "hi", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "hi", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver());
 
     const result = await ops.dockerExec(coolifyHostTarget, "ps -a");
@@ -62,7 +62,7 @@ describe("HostOps.dockerExec()", () => {
   });
 
   it("runs docker with -H using shell-quoted dockerHost on a remote server", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "containers", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "containers", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver());
 
     await ops.dockerExec(remoteTarget, "ps -a");
@@ -80,7 +80,7 @@ describe("HostOps.dockerExec()", () => {
       isCoolifyHost: false,
       dockerHost: "ssh://root@10.0.0.5; touch /tmp/pwned",
     };
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver());
 
     await ops.dockerExec(poisonedTarget, "ps -a");
@@ -94,7 +94,7 @@ describe("HostOps.dockerExec()", () => {
   });
 
   it("propagates non-zero exit codes without throwing", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 1, stdout: "", stderr: "no such container" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 1, stdout: "", stderr: "no such container" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver());
 
     const result = await ops.dockerExec(coolifyHostTarget, "inspect nonexistent");
@@ -107,7 +107,7 @@ describe("HostOps.dockerExec()", () => {
 describe("HostOps.dockerStream()", () => {
   it("streams without -H on coolify host", async () => {
     const lines: string[] = [];
-    const streamExecFn = vi.fn(async (cmd: string, onLine: (l: string) => void, _signal: AbortSignal) => {
+    const streamExecFn = vi.fn<(...args: any[]) => any>(async (cmd: string, onLine: (l: string) => void, _signal: AbortSignal) => {
       onLine("log line 1");
       onLine("log line 2");
       return { code: 0 };
@@ -123,7 +123,7 @@ describe("HostOps.dockerStream()", () => {
   });
 
   it("streams with -H using shell-quoted dockerHost for remote servers", async () => {
-    const streamExecFn = vi.fn(async (_cmd: string, _onLine: (l: string) => void, _signal: AbortSignal) => ({ code: 0 }));
+    const streamExecFn = vi.fn<(...args: any[]) => any>(async (_cmd: string, _onLine: (l: string) => void, _signal: AbortSignal) => ({ code: 0 }));
     const ops = new HostOps(makeSsh({ streamExec: streamExecFn }), makeResolver());
 
     const ac = new AbortController();
@@ -139,7 +139,7 @@ describe("HostOps.dockerStream()", () => {
 
 describe("HostOps.rawExec()", () => {
   it("executes command directly (no docker prefix)", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "raw output", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "raw output", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver());
 
     const result = await ops.rawExec(coolifyHostTarget, "ls /data/coolify");
@@ -151,7 +151,7 @@ describe("HostOps.rawExec()", () => {
 
 describe("HostOps.psqlReadOnly()", () => {
   it("executes SELECT queries via coolify-db container", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "1 row", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "1 row", stderr: "" }));
     // H2R1: HostOps now requires dbReadonlyUser for psqlReadOnly
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
 
@@ -165,7 +165,7 @@ describe("HostOps.psqlReadOnly()", () => {
   });
 
   it("executes WITH ... SELECT (CTE) queries", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "cte result", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "cte result", stderr: "" }));
     // H2R1: HostOps now requires dbReadonlyUser for psqlReadOnly
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
 
@@ -309,7 +309,7 @@ describe("HostOps.psqlReadOnly()", () => {
   });
 
   it("R5: allows a plain trailing semicolon (SELECT 1;)", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: " 1 \n(1 row)", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: " 1 \n(1 row)", stderr: "" }));
     // H2R1: pass dbReadonlyUser
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
     const result = await ops.psqlReadOnly("SELECT 1;");
@@ -320,7 +320,7 @@ describe("HostOps.psqlReadOnly()", () => {
   it("R5: psql command uses BEGIN READ ONLY transaction to enforce read-only mode", async () => {
     // H2R1: The old SET default_transaction_read_only approach is replaced by an explicit
     // BEGIN READ ONLY / ROLLBACK transaction using three -c flags in one session.
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: " 1 \n(1 row)", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: " 1 \n(1 row)", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
     await ops.psqlReadOnly("SELECT 1");
     const cmd: string = execFn.mock.calls[0][0] as string;
@@ -335,7 +335,7 @@ describe("HostOps.psqlReadOnly()", () => {
   });
 
   it("bounds the query with a server-side statement_timeout before the user SQL", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
     await ops.psqlReadOnly("SELECT 1");
     const cmd: string = execFn.mock.calls[0][0] as string;
@@ -345,7 +345,7 @@ describe("HostOps.psqlReadOnly()", () => {
   });
 
   it("passes output-size and exec-timeout bounds to ssh.exec (DoS/OOM guard)", async () => {
-    const execFn = vi.fn(async (_cmd: string, _stdin?: string, _opts?: unknown) => ({ code: 0, stdout: "1", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string, _stdin?: string, _opts?: unknown) => ({ code: 0, stdout: "1", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
     await ops.psqlReadOnly("SELECT 1");
     const opts = execFn.mock.calls[0][2] as { maxOutputBytes?: number; timeoutMs?: number } | undefined;
@@ -360,7 +360,7 @@ describe("HostOps.psqlReadOnly()", () => {
       "MIIEpAIBAAKCAQEAzW2...",
       "-----END RSA PRIVATE KEY-----",
     ].join("\n");
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: privateKeyOutput, stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: privateKeyOutput, stderr: "" }));
     // H2R1: pass dbReadonlyUser
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
     const result = await ops.psqlReadOnly("SELECT private_key FROM certificates WHERE id=1");
@@ -374,7 +374,7 @@ describe("HostOps.readHostFile()", () => {
     // R6: readFile is now called with allowedPrefixes as second arg for symlink defense.
     // The .env path triggers env-value redaction; use a non-sensitive key to confirm
     // pass-through still works (the key must appear in output unchanged).
-    const readFileFn = vi.fn(async (_path: string, _prefixes?: string[]) => "APP_URL=https://example.com");
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string, _prefixes?: string[]) => "APP_URL=https://example.com");
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/source/.env");
@@ -389,7 +389,7 @@ describe("HostOps.readHostFile()", () => {
   });
 
   it("reads a file under /data/coolify/proxy/ prefix", async () => {
-    const readFileFn = vi.fn(async (_path: string, _prefixes?: string[]) => "proxy config");
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string, _prefixes?: string[]) => "proxy config");
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/proxy/nginx.conf");
@@ -457,7 +457,7 @@ describe("HostOps.readHostFile()", () => {
       "DB_HOST=localhost",
       "APP_URL=https://example.com",
     ].join("\n");
-    const readFileFn = vi.fn(async (_path: string) => envContents);
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string) => envContents);
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/source/.env");
@@ -479,7 +479,7 @@ describe("HostOps.readHostFile()", () => {
     // Files under /data/coolify/proxy/ (a directory prefix) that are not .env
     // should still pass through without env-style redaction applied incorrectly
     const proxyContents = "server { listen 80; }";
-    const readFileFn = vi.fn(async (_path: string) => proxyContents);
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string) => proxyContents);
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/proxy/nginx.conf");
@@ -550,7 +550,7 @@ describe("H2R1: validateReadOnlySql — expanded blocklist", () => {
 
 describe("H2R1: psqlReadOnly — uses readonly role and BEGIN READ ONLY / ROLLBACK", () => {
   it("H2R1: connects as dbReadonlyUser, not 'coolify'", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
     await ops.psqlReadOnly("SELECT 1");
     const cmd: string = execFn.mock.calls[0][0] as string;
@@ -560,7 +560,7 @@ describe("H2R1: psqlReadOnly — uses readonly role and BEGIN READ ONLY / ROLLBA
   });
 
   it("H2R1: wraps query in BEGIN READ ONLY / ROLLBACK (three -c flags)", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
     await ops.psqlReadOnly("SELECT 42");
     const cmd: string = execFn.mock.calls[0][0] as string;
@@ -577,7 +577,7 @@ describe("H2R1: psqlReadOnly — uses readonly role and BEGIN READ ONLY / ROLLBA
   });
 
   it("H2R1: forwards PGPASSWORD via stdin, never on the process argv", async () => {
-    const execFn = vi.fn(async (_cmd: string, _stdin?: string) => ({ code: 0, stdout: "1", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string, _stdin?: string) => ({ code: 0, stdout: "1", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro", "s3cr3t_pw");
     await ops.psqlReadOnly("SELECT 1");
     const cmd: string = execFn.mock.calls[0][0] as string;
@@ -591,7 +591,7 @@ describe("H2R1: psqlReadOnly — uses readonly role and BEGIN READ ONLY / ROLLBA
   });
 
   it("H2R1: no PGPASSWORD when dbReadonlyPassword is absent", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "coolify_ro");
     await ops.psqlReadOnly("SELECT 1");
     const cmd: string = execFn.mock.calls[0][0] as string;
@@ -599,7 +599,7 @@ describe("H2R1: psqlReadOnly — uses readonly role and BEGIN READ ONLY / ROLLBA
   });
 
   it("H2R1: shell-quotes the readonly user to prevent injection", async () => {
-    const execFn = vi.fn(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
+    const execFn = vi.fn<(...args: any[]) => any>(async (_cmd: string) => ({ code: 0, stdout: "1", stderr: "" }));
     // User with a tricky character — should be quoted
     const ops = new HostOps(makeSsh({ exec: execFn }), makeResolver(), "readonly'user");
     await ops.psqlReadOnly("SELECT 1");
@@ -715,7 +715,7 @@ describe("H2R4: redactEnvFileContents — broadened path matching", () => {
       "SECRET_TOKEN=supersecretvalue",
       "PROXY_PORT=8080",
     ].join("\n");
-    const readFileFn = vi.fn(async (_path: string, _prefixes?: string[]) => envContents);
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string, _prefixes?: string[]) => envContents);
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/proxy/.env");
@@ -732,7 +732,7 @@ describe("H2R4: redactEnvFileContents — broadened path matching", () => {
       "DB_PASSWORD=db_super_secret",
       "DB_PORT=5432",
     ].join("\n");
-    const readFileFn = vi.fn(async (_path: string, _prefixes?: string[]) => envContents);
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string, _prefixes?: string[]) => envContents);
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/db/.env");
@@ -746,7 +746,7 @@ describe("H2R4: redactEnvFileContents — broadened path matching", () => {
   // 2. Files whose basename STARTS with ".env." get redacted
   it("H2R4: redacts SECRET in /data/coolify/source/.env.local", async () => {
     const envContents = "APP_KEY=localkey\nDB_PASSWORD=local_password\nAPP_NAME=local";
-    const readFileFn = vi.fn(async (_path: string, _prefixes?: string[]) => envContents);
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string, _prefixes?: string[]) => envContents);
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/source/.env.local");
@@ -758,7 +758,7 @@ describe("H2R4: redactEnvFileContents — broadened path matching", () => {
 
   it("H2R4: redacts SECRET in /data/coolify/source/.env.production", async () => {
     const envContents = "SECRET_KEY=prod_secret_val\nAPP_ENV=production";
-    const readFileFn = vi.fn(async (_path: string, _prefixes?: string[]) => envContents);
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string, _prefixes?: string[]) => envContents);
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/source/.env.production");
@@ -771,7 +771,7 @@ describe("H2R4: redactEnvFileContents — broadened path matching", () => {
   // 3. Files whose basename ENDS with ".env" get redacted
   it("H2R4: redacts SECRET in /data/coolify/source/app.env", async () => {
     const envContents = "API_KEY=apikey12345\nAPP_HOST=example.com";
-    const readFileFn = vi.fn(async (_path: string, _prefixes?: string[]) => envContents);
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string, _prefixes?: string[]) => envContents);
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/source/app.env");
@@ -784,7 +784,7 @@ describe("H2R4: redactEnvFileContents — broadened path matching", () => {
   // 4. Non-.env files in directory prefixes are NOT redacted
   it("H2R4: does NOT redact non-.env file contents (nginx.conf remains unchanged)", async () => {
     const nginxContents = "server { listen 80; server_name example.com; }";
-    const readFileFn = vi.fn(async (_path: string, _prefixes?: string[]) => nginxContents);
+    const readFileFn = vi.fn<(...args: any[]) => any>(async (_path: string, _prefixes?: string[]) => nginxContents);
     const ops = new HostOps(makeSsh({ readFile: readFileFn }), makeResolver());
 
     const result = await ops.readHostFile("/data/coolify/proxy/nginx.conf");

@@ -61,7 +61,7 @@ describe("checkFences — destructive fence", () => {
   });
 
   it("includes preview in confirmation_required error raw_response when preview() is provided", async () => {
-    const preview = vi.fn(async () => ({ resource: "myapp", action: "delete" }));
+    const preview = vi.fn<(...args: any[]) => any>(async () => ({ resource: "myapp", action: "delete" }));
     const result = await checkFences(OPEN, {
       destructive: true,
       args: {},
@@ -76,7 +76,7 @@ describe("checkFences — destructive fence", () => {
   });
 
   it("does not call preview() when allowDestructive=false (blocked before preview)", async () => {
-    const preview = vi.fn(async () => ({ x: 1 }));
+    const preview = vi.fn<(...args: any[]) => any>(async () => ({ x: 1 }));
     const result = await checkFences(DEST_OFF, {
       destructive: true,
       args: { confirm: true },
@@ -92,7 +92,7 @@ describe("checkFences — destructive fence", () => {
 
 describe("checkFences — dry_run", () => {
   it("returns ok({dry_run:true, preview}) when dry_run=true on a destructive op", async () => {
-    const preview = vi.fn(async () => ({ would_delete: "myapp" }));
+    const preview = vi.fn<(...args: any[]) => any>(async () => ({ would_delete: "myapp" }));
     const result = await checkFences(OPEN, {
       destructive: true,
       args: { dry_run: true },
@@ -116,7 +116,7 @@ describe("checkFences — dry_run", () => {
   });
 
   it("does not reach dry_run check when allowDestructive=false", async () => {
-    const preview = vi.fn(async () => ({}));
+    const preview = vi.fn<(...args: any[]) => any>(async () => ({}));
     const result = await checkFences(DEST_OFF, {
       destructive: true,
       args: { dry_run: true },
@@ -144,7 +144,7 @@ describe("checkFences — non-destructive, non-host-ops", () => {
 
 describe("checkFences — combined flags", () => {
   it("checks host ops first; does not reach destructive check if host ops blocked", async () => {
-    const preview = vi.fn(async () => ({}));
+    const preview = vi.fn<(...args: any[]) => any>(async () => ({}));
     const result = await checkFences(
       { enableHostOps: false, allowDestructive: true },
       { requireHostOps: true, destructive: true, args: {}, preview }

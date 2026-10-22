@@ -183,7 +183,7 @@ describe("get_servers end-to-end dispatch", () => {
       default: {
         name: "default",
         config: { name: "default", baseUrl: "http://localhost", token: "1|secret", extraHeaders: {}, enableHostOps: false, allowDestructive: false },
-        api: { servers: { list: vi.fn(async () => fakeServers) } },
+        api: { servers: { list: vi.fn<(...args: any[]) => any>(async () => fakeServers) } },
         resolver: {},
         hostOps: async () => ({}),
       },
