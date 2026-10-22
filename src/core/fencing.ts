@@ -1,5 +1,5 @@
-import { err, ok } from "./errors.js";
-import type { ToolResult } from "./errors.js";
+import { err, ok } from './errors.js';
+import type { ToolResult } from './errors.js';
 
 export interface FenceContext {
   enableHostOps: boolean;
@@ -30,18 +30,15 @@ export async function checkFences(
 ): Promise<ToolResult | null> {
   // 1. Host-ops fence (checked first)
   if (opts.requireHostOps && !ctx.enableHostOps) {
-    return err(
-      "host_ops_disabled",
-      "This action requires --enable-host-ops to be set at startup.",
-    );
+    return err('host_ops_disabled', 'This action requires --enable-host-ops to be set at startup.');
   }
 
   // 2. Destructive fence
   if (opts.destructive) {
     if (!ctx.allowDestructive) {
       return err(
-        "destructive_blocked",
-        "This is a destructive action and --allow-destructive was not set at startup.",
+        'destructive_blocked',
+        'This is a destructive action and --allow-destructive was not set at startup.',
       );
     }
 
@@ -61,8 +58,8 @@ export async function checkFences(
         rawResponse = await opts.preview();
       }
       return err(
-        "confirmation_required",
-        "This is a destructive action. Pass confirm:true to proceed.",
+        'confirmation_required',
+        'This is a destructive action. Pass confirm:true to proceed.',
         rawResponse,
       );
     }

@@ -1,10 +1,10 @@
 // src/core/registry.ts
-import { CoolifyApiClient } from "./api/client.js";
-import { ServerResolver } from "./ssh/resolver.js";
-import { SshClient } from "./ssh/client.js";
-import { HostOps } from "./ssh/host-ops.js";
-import { CoolifyError } from "./errors.js";
-import type { AppConfig, InstanceConfig } from "./config/schema.js";
+import { CoolifyApiClient } from './api/client.js';
+import { ServerResolver } from './ssh/resolver.js';
+import { SshClient } from './ssh/client.js';
+import { HostOps } from './ssh/host-ops.js';
+import { CoolifyError } from './errors.js';
+import type { AppConfig, InstanceConfig } from './config/schema.js';
 
 export interface ResolvedInstance {
   name: string;
@@ -25,10 +25,16 @@ export interface InstanceSummary {
 export class InstanceRegistry {
   private readonly cfg: AppConfig;
   private readonly cache = new Map<string, ResolvedInstance>();
-  constructor(cfg: AppConfig) { this.cfg = cfg; }
+  constructor(cfg: AppConfig) {
+    this.cfg = cfg;
+  }
 
-  names(): string[] { return Object.keys(this.cfg.instances); }
-  defaultName(): string { return this.cfg.defaultInstance; }
+  names(): string[] {
+    return Object.keys(this.cfg.instances);
+  }
+  defaultName(): string {
+    return this.cfg.defaultInstance;
+  }
 
   get(name?: string): ResolvedInstance {
     const key = name ?? this.cfg.defaultInstance;
@@ -36,10 +42,20 @@ export class InstanceRegistry {
     if (cached) return cached;
     const config = this.cfg.instances[key];
     if (!config) {
-      throw new CoolifyError("invalid_input", `Unknown instance '${key}'; known: ${this.names().join(", ")}`);
+      throw new CoolifyError(
+        'invalid_input',
+        `Unknown instance '${key}'; known: ${this.names().join(', ')}`,
+      );
     }
-    const api = new CoolifyApiClient({ baseUrl: config.baseUrl, token: config.token, extraHeaders: config.extraHeaders });
-    const resolver = new ServerResolver(api, { baseUrl: config.baseUrl, hostServer: config.ssh?.hostServer });
+    const api = new CoolifyApiClient({
+      baseUrl: config.baseUrl,
+      token: config.token,
+      extraHeaders: config.extraHeaders,
+    });
+    const resolver = new ServerResolver(api, {
+      baseUrl: config.baseUrl,
+      hostServer: config.ssh?.hostServer,
+    });
     const hostOps = makeInstanceHostOps(config, api, resolver);
     const resolved: ResolvedInstance = { name: key, config, api, resolver, hostOps };
     this.cache.set(key, resolved);
@@ -59,13 +75,20 @@ export class InstanceRegistry {
 }
 
 /** Lazy async HostOps builder for one instance. Resolves the control host via the API on first use. */
-export function makeInstanceHostOps(config: InstanceConfig, api: CoolifyApiClient, resolver: ServerResolver): () => Promise<HostOps> {
+export function makeInstanceHostOps(
+  config: InstanceConfig,
+  api: CoolifyApiClient,
+  resolver: ServerResolver,
+): () => Promise<HostOps> {
   void api;
   let instance: HostOps | undefined;
   let sshRef: SshClient | undefined;
   return async (): Promise<HostOps> => {
     if (!config.enableHostOps) {
-      throw new CoolifyError("host_ops_disabled", `Host-ops is disabled for instance '${config.name}'. Set enableHostOps:true (and ssh.keyPath) to use this tool.`);
+      throw new CoolifyError(
+        'host_ops_disabled',
+        `Host-ops is disabled for instance '${config.name}'. Set enableHostOps:true (and ssh.keyPath) to use this tool.`,
+      );
     }
     // The pooled SSH session can die mid-session (idle timeout, deployment
     // churn, sshd restart). Reconnect it here instead of handing back a dead
@@ -74,7 +97,11 @@ export function makeInstanceHostOps(config: InstanceConfig, api: CoolifyApiClien
       await sshRef.connect();
     }
     if (!instance) {
-      if (!config.ssh) throw new CoolifyError("invalid_input", `Instance '${config.name}' has enableHostOps but no ssh.keyPath configured.`);
+      if (!config.ssh)
+        throw new CoolifyError(
+          'invalid_input',
+          `Instance '${config.name}' has enableHostOps but no ssh.keyPath configured.`,
+        );
       const ch = await resolver.resolveControlHost();
       const ssh = new SshClient({
         host: config.ssh.host ?? ch.host,

@@ -2,32 +2,30 @@
 // and services API sub-clients implement a common surface (get/update/control/
 // delete + storage/env/scheduled-task ops), so a single typed union resolver
 // replaces the near-identical pick*Client helpers that used to live in each tool.
-import { err, toErrorResult } from "../../core/errors.js";
-import { assertCoolifyUuid } from "../../core/validate.js";
-import type { ToolResult } from "../../core/errors.js";
-import type { CoolifyApiClient } from "../../core/api/client.js";
+import { err, toErrorResult } from '../../core/errors.js';
+import { assertCoolifyUuid } from '../../core/validate.js';
+import type { ToolResult } from '../../core/errors.js';
+import type { CoolifyApiClient } from '../../core/api/client.js';
 
 export type ResourceSubClient =
-  | CoolifyApiClient["applications"]
-  | CoolifyApiClient["databases"]
-  | CoolifyApiClient["services"];
+  | CoolifyApiClient['applications']
+  | CoolifyApiClient['databases']
+  | CoolifyApiClient['services'];
 
 // Narrower union for tools that exclude databases (e.g. scheduled tasks, which
 // only applications and services support).
-export type AppOrServiceSubClient =
-  | CoolifyApiClient["applications"]
-  | CoolifyApiClient["services"];
+export type AppOrServiceSubClient = CoolifyApiClient['applications'] | CoolifyApiClient['services'];
 
-const RESOURCE_TYPES = ["applications", "databases", "services"] as const;
+const RESOURCE_TYPES = ['applications', 'databases', 'services'] as const;
 
 /**
  * Picks the applications/databases/services sub-client for a `type` discriminator.
  * Returns null when the type is not one of the three.
  */
 export function pickResourceClient(api: CoolifyApiClient, type: string): ResourceSubClient | null {
-  if (type === "applications") return api.applications;
-  if (type === "databases") return api.databases;
-  if (type === "services") return api.services;
+  if (type === 'applications') return api.applications;
+  if (type === 'databases') return api.databases;
+  if (type === 'services') return api.services;
   return null;
 }
 
@@ -51,18 +49,21 @@ export function resolveTypedResource<T extends ResourceSubClient = ResourceSubCl
   allowed: readonly string[] = RESOURCE_TYPES,
 ): ResolvedResource<T> | ToolResult {
   const type = args.type;
-  if (typeof type !== "string") {
-    return err("invalid_input", `\`type\` must be a string: ${allowed.join(" | ")}`);
+  if (typeof type !== 'string') {
+    return err('invalid_input', `\`type\` must be a string: ${allowed.join(' | ')}`);
   }
   let uuid: string;
   try {
-    uuid = assertCoolifyUuid(args.uuid, "uuid");
+    uuid = assertCoolifyUuid(args.uuid, 'uuid');
   } catch (e) {
     return toErrorResult(e);
   }
   const sub = allowed.includes(type) ? pickResourceClient(api, type) : null;
   if (!sub) {
-    return err("invalid_input", `Unknown resource type "${type}". Must be one of: ${allowed.join(", ")}`);
+    return err(
+      'invalid_input',
+      `Unknown resource type "${type}". Must be one of: ${allowed.join(', ')}`,
+    );
   }
   // Safe by construction: `allowed` (caller-supplied) constrains `type`, and the
   // caller declares the corresponding `T`. pickResourceClient returns the wide union.
@@ -74,8 +75,11 @@ export function resolveTypedResource<T extends ResourceSubClient = ResourceSubCl
  * (confirm/dry_run) plus the named discriminators — Coolify's create/update
  * endpoints reject unknown fields with HTTP 422.
  */
-export function bodyWithout(args: Record<string, unknown>, ...keys: string[]): Record<string, unknown> {
-  const drop = new Set<string>(["confirm", "dry_run", ...keys]);
+export function bodyWithout(
+  args: Record<string, unknown>,
+  ...keys: string[]
+): Record<string, unknown> {
+  const drop = new Set<string>(['confirm', 'dry_run', ...keys]);
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(args)) {
     if (!drop.has(k)) out[k] = v;
@@ -100,30 +104,36 @@ export function buildFieldsBody(
 ): { body: Record<string, unknown> } | ToolResult {
   const { fields, fields_json } = args;
   if (fields !== undefined && fields_json !== undefined) {
-    return err("invalid_input", "`fields` and `fields_json` are mutually exclusive — provide exactly one.");
+    return err(
+      'invalid_input',
+      '`fields` and `fields_json` are mutually exclusive — provide exactly one.',
+    );
   }
   let passthrough: Record<string, unknown> | undefined;
   if (fields !== undefined) {
-    if (typeof fields !== "object" || fields === null || Array.isArray(fields)) {
-      return err("invalid_input", "`fields` must be an object mapping field names to new values.");
+    if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) {
+      return err('invalid_input', '`fields` must be an object mapping field names to new values.');
     }
     passthrough = fields as Record<string, unknown>;
   } else if (fields_json !== undefined) {
-    if (typeof fields_json !== "string") {
-      return err("invalid_input", "`fields_json` must be a JSON-encoded object string.");
+    if (typeof fields_json !== 'string') {
+      return err('invalid_input', '`fields_json` must be a JSON-encoded object string.');
     }
     let parsed: unknown;
     try {
       parsed = JSON.parse(fields_json);
     } catch {
-      return err("invalid_input", "`fields_json` is not valid JSON.");
+      return err('invalid_input', '`fields_json` is not valid JSON.');
     }
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return err("invalid_input", '`fields_json` must encode a JSON object, e.g. \'{"name":"new-name"}\'.');
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return err(
+        'invalid_input',
+        '`fields_json` must encode a JSON object, e.g. \'{"name":"new-name"}\'.',
+      );
     }
     passthrough = parsed as Record<string, unknown>;
   }
-  return { body: { ...bodyWithout(args, "fields", "fields_json", ...keys), ...passthrough } };
+  return { body: { ...bodyWithout(args, 'fields', 'fields_json', ...keys), ...passthrough } };
 }
 
 /**
@@ -133,14 +143,13 @@ export function buildFieldsBody(
 export function fieldsPassthroughProps(what: string): Record<string, unknown> {
   return {
     fields: {
-      type: "object",
+      type: 'object',
       description: `${what}, sent verbatim as the request body — any field the Coolify endpoint accepts is allowed.`,
       additionalProperties: true,
     },
     fields_json: {
-      type: "string",
-      description:
-        `JSON-encoded alternative to \`fields\` (mutually exclusive) for clients whose strict schema handling strips free-form object contents.`,
+      type: 'string',
+      description: `JSON-encoded alternative to \`fields\` (mutually exclusive) for clients whose strict schema handling strips free-form object contents.`,
     },
   };
 }

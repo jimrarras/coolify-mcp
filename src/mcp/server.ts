@@ -1,36 +1,45 @@
 // src/mcp/server.ts
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { createServer as createHttpServer } from "node:http";
-import { timingSafeEqual } from "node:crypto";
-import { loadConfig } from "../core/config.js";
-import { CoolifyError } from "../core/errors.js";
-import { InstanceRegistry } from "../core/registry.js";
-import { withHeartbeat } from "../core/heartbeat.js";
-import { dispatch } from "./dispatch.js";
-import type { ToolDef } from "./tools/types.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { createServer as createHttpServer } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
+import { loadConfig } from '../core/config.js';
+import { CoolifyError } from '../core/errors.js';
+import { InstanceRegistry } from '../core/registry.js';
+import { withHeartbeat } from '../core/heartbeat.js';
+import { dispatch } from './dispatch.js';
+import type { ToolDef } from './tools/types.js';
 
-import { TOOLS as deployTools } from "./tools/deploy.js";
-import { TOOLS as resourceTools } from "./tools/resources.js";
-import { TOOLS as storageTools } from "./tools/storage.js";
-import { TOOLS as backupTools } from "./tools/backups.js";
-import { TOOLS as scheduledTaskTools } from "./tools/scheduled-tasks.js";
-import { TOOLS as envTools } from "./tools/env.js";
-import { TOOLS as logTools } from "./tools/logs.js";
-import { TOOLS as serverTools } from "./tools/servers.js";
-import { TOOLS as projectTools } from "./tools/projects.js";
-import { TOOLS as instanceTools } from "./tools/instances.js";
-import { TOOLS as hostTools } from "./tools/host.js";
+import { TOOLS as deployTools } from './tools/deploy.js';
+import { TOOLS as resourceTools } from './tools/resources.js';
+import { TOOLS as storageTools } from './tools/storage.js';
+import { TOOLS as backupTools } from './tools/backups.js';
+import { TOOLS as scheduledTaskTools } from './tools/scheduled-tasks.js';
+import { TOOLS as envTools } from './tools/env.js';
+import { TOOLS as logTools } from './tools/logs.js';
+import { TOOLS as serverTools } from './tools/servers.js';
+import { TOOLS as projectTools } from './tools/projects.js';
+import { TOOLS as instanceTools } from './tools/instances.js';
+import { TOOLS as hostTools } from './tools/host.js';
 
 /** All ToolDefs, host tier filtered out unless enableHostOps. Exported for tests. */
 export function getAllTools(flags: { enableHostOps: boolean }): ToolDef[] {
   const all = [
-    ...deployTools, ...resourceTools, ...storageTools, ...backupTools, ...scheduledTaskTools,
-    ...envTools, ...logTools, ...serverTools, ...projectTools, ...instanceTools, ...hostTools,
+    ...deployTools,
+    ...resourceTools,
+    ...storageTools,
+    ...backupTools,
+    ...scheduledTaskTools,
+    ...envTools,
+    ...logTools,
+    ...serverTools,
+    ...projectTools,
+    ...instanceTools,
+    ...hostTools,
   ];
-  return flags.enableHostOps ? all : all.filter((t) => t.tier !== "host");
+  return flags.enableHostOps ? all : all.filter((t) => t.tier !== 'host');
 }
 
 export interface HttpTransportConfig {
@@ -53,7 +62,7 @@ export function resolveHttpConfig(
   env: Record<string, string | undefined>,
 ): HttpTransportConfig | null {
   let port: number | undefined;
-  const flagIdx = argv.indexOf("--http");
+  const flagIdx = argv.indexOf('--http');
   if (flagIdx !== -1) {
     const next = argv[flagIdx + 1];
     port = next && /^\d+$/.test(next) ? parseInt(next, 10) : 3000;
@@ -66,23 +75,26 @@ export function resolveHttpConfig(
   const token = env.COOLIFY_MCP_HTTP_TOKEN;
   if (!token) {
     throw new CoolifyError(
-      "invalid_input",
-      "HTTP transport requires COOLIFY_MCP_HTTP_TOKEN (a bearer token); refusing to expose an unauthenticated MCP endpoint.",
+      'invalid_input',
+      'HTTP transport requires COOLIFY_MCP_HTTP_TOKEN (a bearer token); refusing to expose an unauthenticated MCP endpoint.',
     );
   }
   // Reject a trivially weak/brute-forceable secret. The endpoint is network-facing
   // (especially on a non-loopback bind), so require meaningful entropy by length.
   if (token.length < MIN_HTTP_TOKEN_LENGTH) {
     throw new CoolifyError(
-      "invalid_input",
+      'invalid_input',
       `COOLIFY_MCP_HTTP_TOKEN must be at least ${MIN_HTTP_TOKEN_LENGTH} characters; use a long random secret.`,
     );
   }
-  const host = env.COOLIFY_MCP_HTTP_HOST ?? "127.0.0.1";
+  const host = env.COOLIFY_MCP_HTTP_HOST ?? '127.0.0.1';
   const result: HttpTransportConfig = { host, port, token };
   const allowedHostsRaw = env.COOLIFY_MCP_HTTP_ALLOWED_HOSTS;
   if (allowedHostsRaw) {
-    result.allowedHosts = allowedHostsRaw.split(",").map((s) => s.trim()).filter(Boolean);
+    result.allowedHosts = allowedHostsRaw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
   return result;
 }
@@ -113,19 +125,24 @@ function isLocalhost(host: string): boolean {
 /** Builds a configured MCP Server with the list/call handlers wired up. */
 function buildServer(registry: InstanceRegistry, tools: ToolDef[]): Server {
   const multi = registry.names().length > 1;
-  const server = new Server({ name: "coolify-mcp", version: "0.3.0" }, { capabilities: { tools: {} } });
+  const server = new Server(
+    { name: 'coolify-mcp', version: '0.3.0' },
+    { capabilities: { tools: {} } },
+  );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((t) => ({
       name: t.name,
-      description: multi ? `${t.description} [instances: ${registry.names().join(", ")}; default ${registry.defaultName()}]` : t.description,
+      description: multi
+        ? `${t.description} [instances: ${registry.names().join(', ')}; default ${registry.defaultName()}]`
+        : t.description,
       inputSchema: t.inputSchema,
     })),
   }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (server as any).setRequestHandler(CallToolRequestSchema, async (req: any, extra: any) => {
-    const notifier = extra as import("../core/heartbeat.js").Notifier;
+    const notifier = extra as import('../core/heartbeat.js').Notifier;
     return withHeartbeat(notifier, () =>
       dispatch(
         req.params.name,
@@ -142,7 +159,11 @@ function buildServer(registry: InstanceRegistry, tools: ToolDef[]): Server {
 }
 
 /** Serves the MCP server over Streamable HTTP behind a bearer-token gate. */
-async function startHttp(registry: InstanceRegistry, tools: ToolDef[], cfg: HttpTransportConfig): Promise<void> {
+async function startHttp(
+  registry: InstanceRegistry,
+  tools: ToolDef[],
+  cfg: HttpTransportConfig,
+): Promise<void> {
   // DNS-rebinding defense for non-loopback binds: validate the Host header against
   // an allowlist (the SDK's transport-level option is deprecated in favor of
   // external middleware, so we enforce it here). Loopback binds skip the check —
@@ -150,17 +171,31 @@ async function startHttp(registry: InstanceRegistry, tools: ToolDef[], cfg: Http
   // host:port; override with COOLIFY_MCP_HTTP_ALLOWED_HOSTS (needed for 0.0.0.0).
   const allowedHosts = isLocalhost(cfg.host)
     ? undefined
-    : (cfg.allowedHosts && cfg.allowedHosts.length ? cfg.allowedHosts : [`${cfg.host}:${cfg.port}`]);
+    : cfg.allowedHosts && cfg.allowedHosts.length
+      ? cfg.allowedHosts
+      : [`${cfg.host}:${cfg.port}`];
 
   const httpServer = createHttpServer((req, res) => {
-    if (!isAuthorized(req.headers["authorization"], cfg.token)) {
-      res.writeHead(401, { "content-type": "application/json", "www-authenticate": "Bearer" });
-      res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32001, message: "Unauthorized" }, id: null }));
+    if (!isAuthorized(req.headers['authorization'], cfg.token)) {
+      res.writeHead(401, { 'content-type': 'application/json', 'www-authenticate': 'Bearer' });
+      res.end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          error: { code: -32001, message: 'Unauthorized' },
+          id: null,
+        }),
+      );
       return;
     }
     if (allowedHosts && !isHostAllowed(req.headers.host, allowedHosts)) {
-      res.writeHead(403, { "content-type": "application/json" });
-      res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32003, message: "Forbidden host" }, id: null }));
+      res.writeHead(403, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          error: { code: -32003, message: 'Forbidden host' },
+          id: null,
+        }),
+      );
       return;
     }
     // Stateless mode: build a fresh server + transport PER REQUEST so concurrent
@@ -168,7 +203,7 @@ async function startHttp(registry: InstanceRegistry, tools: ToolDef[], cfg: Http
     // would interleave their messages). Both are torn down when the response closes.
     const server = buildServer(registry, tools);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-    res.on("close", () => {
+    res.on('close', () => {
       void transport.close().catch(() => {});
       void server.close().catch(() => {});
     });
@@ -176,10 +211,18 @@ async function startHttp(registry: InstanceRegistry, tools: ToolDef[], cfg: Http
       await server.connect(transport);
       await transport.handleRequest(req, res);
     })().catch((e: unknown) => {
-      process.stderr.write(`[coolify-mcp] HTTP request error: ${e instanceof Error ? e.message : String(e)}\n`);
+      process.stderr.write(
+        `[coolify-mcp] HTTP request error: ${e instanceof Error ? e.message : String(e)}\n`,
+      );
       if (!res.headersSent) {
-        res.writeHead(500, { "content-type": "application/json" });
-        res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32603, message: "Internal error" }, id: null }));
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            error: { code: -32603, message: 'Internal error' },
+            id: null,
+          }),
+        );
       }
     });
   });
@@ -192,7 +235,10 @@ async function startHttp(registry: InstanceRegistry, tools: ToolDef[], cfg: Http
 
 export async function main(): Promise<void> {
   const cfg = loadConfig(process.argv.slice(2), process.env as Record<string, string | undefined>);
-  const httpCfg = resolveHttpConfig(process.argv.slice(2), process.env as Record<string, string | undefined>);
+  const httpCfg = resolveHttpConfig(
+    process.argv.slice(2),
+    process.env as Record<string, string | undefined>,
+  );
   const registry = new InstanceRegistry(cfg);
 
   // Host-ops registration is the union: if ANY instance enables it, include host
@@ -209,10 +255,14 @@ export async function main(): Promise<void> {
       const version = await inst.api.version();
       const pinned = inst.config.pinnedCoolifyVersion;
       if (version && pinned && version !== pinned) {
-        process.stderr.write(`[coolify-mcp] WARNING: instance '${name}' Coolify ${version} differs from pinned ${pinned}.\n`);
+        process.stderr.write(
+          `[coolify-mcp] WARNING: instance '${name}' Coolify ${version} differs from pinned ${pinned}.\n`,
+        );
       }
     } catch (e) {
-      process.stderr.write(`[coolify-mcp] WARNING: instance '${name}' startup health check failed: ${e instanceof Error ? e.message : String(e)}. Run 'coolify-mcp doctor' to diagnose.\n`);
+      process.stderr.write(
+        `[coolify-mcp] WARNING: instance '${name}' startup health check failed: ${e instanceof Error ? e.message : String(e)}. Run 'coolify-mcp doctor' to diagnose.\n`,
+      );
     }
   }
 

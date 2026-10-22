@@ -1,9 +1,14 @@
-import { loadConfig } from "../core/config.js";
-import { InstanceRegistry } from "../core/registry.js";
-import { runAllChecks, type CheckResult } from "./checks.js";
-import type { ResolvedInstance } from "../core/registry.js";
+import { loadConfig } from '../core/config.js';
+import { InstanceRegistry } from '../core/registry.js';
+import { runAllChecks, type CheckResult } from './checks.js';
+import type { ResolvedInstance } from '../core/registry.js';
 
-const ICON: Record<CheckResult["status"], string> = { ok: "PASS", warn: "WARN", fail: "FAIL", skip: "SKIP" };
+const ICON: Record<CheckResult['status'], string> = {
+  ok: 'PASS',
+  warn: 'WARN',
+  fail: 'FAIL',
+  skip: 'SKIP',
+};
 
 export async function runDoctor(
   argv: string[],
@@ -13,7 +18,9 @@ export async function runDoctor(
 ): Promise<number> {
   let registry: InstanceRegistry;
   try {
-    registry = new InstanceRegistry(loadConfig(argv, env, deps.home ? { home: deps.home } : undefined));
+    registry = new InstanceRegistry(
+      loadConfig(argv, env, deps.home ? { home: deps.home } : undefined),
+    );
   } catch (e) {
     out(`config error: ${e instanceof Error ? e.message : String(e)}`);
     return 1;
@@ -25,9 +32,9 @@ export async function runDoctor(
     const results = await runChecks(registry.get(name));
     for (const r of results) {
       out(`${ICON[r.status]}  ${r.name} — ${r.detail}`);
-      if (r.status === "fail" || r.status === "warn") {
+      if (r.status === 'fail' || r.status === 'warn') {
         if (r.fix) out(`        fix: ${r.fix}`);
-        if (r.status === "fail") anyFail = true;
+        if (r.status === 'fail') anyFail = true;
       }
     }
   }

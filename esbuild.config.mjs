@@ -9,9 +9,9 @@
 // After bundling, THIRD-PARTY-NOTICES.txt is regenerated from the esbuild metafile
 // so the license/copyright notices of every bundled package travel with the
 // published artifact (the bundle inlines MIT/BSD deps whose licenses require it).
-import { build } from "esbuild";
-import { readFileSync, writeFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { build } from 'esbuild';
+import { readFileSync, writeFileSync, readdirSync } from 'fs';
+import { join } from 'path';
 
 // NOTE: no shebang here — esbuild preserves the entry file's own shebang
 // (src/cli/index.ts) and hoists it to line 1, above this banner.
@@ -20,26 +20,26 @@ const banner =
   "import{createRequire as __cr}from'module';" +
   "import{fileURLToPath as __ffu}from'url';" +
   "import{dirname as __dn}from'path';" +
-  "const require=__cr(import.meta.url);" +
-  "const __filename=__ffu(import.meta.url);" +
-  "const __dirname=__dn(__filename);";
+  'const require=__cr(import.meta.url);' +
+  'const __filename=__ffu(import.meta.url);' +
+  'const __dirname=__dn(__filename);';
 
-const ownPkg = JSON.parse(readFileSync("package.json", "utf8"));
+const ownPkg = JSON.parse(readFileSync('package.json', 'utf8'));
 
 const result = await build({
-  entryPoints: ["src/cli/index.ts"],
+  entryPoints: ['src/cli/index.ts'],
   define: { __PKG_VERSION__: JSON.stringify(ownPkg.version) },
   bundle: true,
-  platform: "node",
-  format: "esm",
-  target: "node26",
-  outfile: "dist/cli/index.js",
-  external: ["cpu-features", "*.node"],
+  platform: 'node',
+  format: 'esm',
+  target: 'node26',
+  outfile: 'dist/cli/index.js',
+  external: ['cpu-features', '*.node'],
   banner: { js: banner },
-  legalComments: "none",
+  legalComments: 'none',
   metafile: true,
 });
-console.error("bundled -> dist/cli/index.js");
+console.error('bundled -> dist/cli/index.js');
 
 writeThirdPartyNotices(result.metafile);
 
@@ -55,40 +55,40 @@ function writeThirdPartyNotices(metafile) {
     // "node_modules/@scope/pkg/index.js" (incl. nested node_modules).
     const m = input.match(/node_modules\/(@[^/]+\/[^/]+|[^/]+)(?:\/|$)/g);
     if (!m) continue;
-    const last = m[m.length - 1].replace(/^.*node_modules\//, "").replace(/\/$/, "");
+    const last = m[m.length - 1].replace(/^.*node_modules\//, '').replace(/\/$/, '');
     names.add(last);
   }
 
   const sorted = [...names].sort();
   let out =
-    "THIRD-PARTY SOFTWARE NOTICES\n" +
-    "============================\n\n" +
-    "coolify-mcp is distributed as a single self-contained bundle (dist/cli/index.js)\n" +
-    "that inlines the following third-party packages. Their license and copyright\n" +
-    "notices are reproduced below as required by their respective licenses.\n\n";
+    'THIRD-PARTY SOFTWARE NOTICES\n' +
+    '============================\n\n' +
+    'coolify-mcp is distributed as a single self-contained bundle (dist/cli/index.js)\n' +
+    'that inlines the following third-party packages. Their license and copyright\n' +
+    'notices are reproduced below as required by their respective licenses.\n\n';
 
   for (const name of sorted) {
-    const dir = join("node_modules", name);
+    const dir = join('node_modules', name);
     let pkg;
     try {
-      pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+      pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
     } catch {
       continue; // not a resolvable package root (defensive)
     }
-    out += `\n${"=".repeat(72)}\n${pkg.name}@${pkg.version}  —  ${licenseOf(pkg)}\n${"=".repeat(72)}\n\n`;
+    out += `\n${'='.repeat(72)}\n${pkg.name}@${pkg.version}  —  ${licenseOf(pkg)}\n${'='.repeat(72)}\n\n`;
     const text = readLicenseText(dir);
-    out += (text ? text.trimEnd() : "(No bundled license file; see SPDX identifier above.)") + "\n";
+    out += (text ? text.trimEnd() : '(No bundled license file; see SPDX identifier above.)') + '\n';
   }
 
-  writeFileSync("THIRD-PARTY-NOTICES.txt", out);
+  writeFileSync('THIRD-PARTY-NOTICES.txt', out);
   console.error(`wrote THIRD-PARTY-NOTICES.txt (${sorted.length} bundled packages)`);
 }
 
 function licenseOf(pkg) {
-  if (typeof pkg.license === "string") return pkg.license;
-  if (Array.isArray(pkg.licenses)) return pkg.licenses.map((l) => l.type || l).join(", ");
+  if (typeof pkg.license === 'string') return pkg.license;
+  if (Array.isArray(pkg.licenses)) return pkg.licenses.map((l) => l.type || l).join(', ');
   if (pkg.license && pkg.license.type) return pkg.license.type;
-  return "see notice";
+  return 'see notice';
 }
 
 function readLicenseText(dir) {
@@ -101,7 +101,7 @@ function readLicenseText(dir) {
   const file = entries.find((e) => /^(licen[sc]e|copying|notice)(\.|$)/i.test(e));
   if (!file) return undefined;
   try {
-    return readFileSync(join(dir, file), "utf8");
+    return readFileSync(join(dir, file), 'utf8');
   } catch {
     return undefined;
   }

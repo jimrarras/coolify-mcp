@@ -9,7 +9,7 @@
 export const SENSITIVE_KEY_RE: RegExp =
   /passphrase|password|\bpass\b|_pass\b|secret|token|api.?key|private.?key|access.?key|encryption.?key|dsn|connection|\benv\b|app.?key|authorization|bearer|database.?url|credential/i;
 
-const REDACTED = "***REDACTED***";
+const REDACTED = '***REDACTED***';
 
 /**
  * Best-effort masking of credentials embedded inline in a shell command string
@@ -19,21 +19,27 @@ const REDACTED = "***REDACTED***";
  * still avoid putting secrets in command strings. Returns the command with
  * matched secret substrings replaced by ***.
  */
-export function scrubInlineSecrets(command: string, opts?: { shortPasswordFlag?: boolean }): string {
+export function scrubInlineSecrets(
+  command: string,
+  opts?: { shortPasswordFlag?: boolean },
+): string {
   let out = command
-    .replace(/(PGPASSWORD=)\S+/gi, "$1***")
-    .replace(/(MYSQL_PWD=)\S+/gi, "$1***")
-    .replace(/(--password[=\s]+)\S+/gi, "$1***");
+    .replace(/(PGPASSWORD=)\S+/gi, '$1***')
+    .replace(/(MYSQL_PWD=)\S+/gi, '$1***')
+    .replace(/(--password[=\s]+)\S+/gi, '$1***');
   // The bare `-p<value>` (mysql-style) rule over-matches benign tokens such as
   // `-platform`, `-progress`, or `-p8080:80`, so it is only applied to known
   // shell-command contexts (the ssh_exec/docker_op audit line), NOT to free-text
   // error messages where it would corrupt diagnostics. Default on for back-compat.
   if (opts?.shortPasswordFlag !== false) {
-    out = out.replace(/(?<![\w-])(-p)([^\s-]\S*)/g, "$1***");
+    out = out.replace(/(?<![\w-])(-p)([^\s-]\S*)/g, '$1***');
   }
   return out
-    .replace(/(Authorization:\s*Bearer\s+)\S+/gi, "$1***")
-    .replace(/((?:api[_-]?key|token|secret|access[_-]?key|passphrase|password)\s*[=:]\s*)\S+/gi, "$1***");
+    .replace(/(Authorization:\s*Bearer\s+)\S+/gi, '$1***')
+    .replace(
+      /((?:api[_-]?key|token|secret|access[_-]?key|passphrase|password)\s*[=:]\s*)\S+/gi,
+      '$1***',
+    );
 }
 
 /**
@@ -49,7 +55,7 @@ export function redact(value: unknown): unknown {
 }
 
 function isSensitiveValue(v: unknown): boolean {
-  if (typeof v === "string") return true;
+  if (typeof v === 'string') return true;
   // Buffer (Node.js) — check via duck-typing so this works in ESM without importing 'buffer'
   if (v instanceof Uint8Array) return true;
   return false;
@@ -62,7 +68,7 @@ function _redact(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => _redact(item));
   }
-  if (typeof value === "object") {
+  if (typeof value === 'object') {
     const copy: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       if (SENSITIVE_KEY_RE.test(k) && isSensitiveValue(v)) {

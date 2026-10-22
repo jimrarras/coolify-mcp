@@ -1,12 +1,12 @@
 export type ErrorKind =
-  | "invalid_input"
-  | "auth"
-  | "confirmation_required"
-  | "destructive_blocked"
-  | "host_ops_disabled"
-  | "not_found"
-  | "transient_exhausted"
-  | "unknown";
+  | 'invalid_input'
+  | 'auth'
+  | 'confirmation_required'
+  | 'destructive_blocked'
+  | 'host_ops_disabled'
+  | 'not_found'
+  | 'transient_exhausted'
+  | 'unknown';
 
 export interface ToolError {
   kind: ErrorKind;
@@ -15,28 +15,24 @@ export interface ToolError {
 }
 
 export type ToolResult =
-  | ({ status: "ok" } & Record<string, unknown>)
-  | ({ status: "partial" } & Record<string, unknown>)
-  | { status: "error"; error: ToolError };
+  | ({ status: 'ok' } & Record<string, unknown>)
+  | ({ status: 'partial' } & Record<string, unknown>)
+  | { status: 'error'; error: ToolError };
 
 export function ok(data?: Record<string, unknown>): ToolResult {
-  return { status: "ok", ...data };
+  return { status: 'ok', ...data };
 }
 
 export function partial(data: Record<string, unknown>): ToolResult {
-  return { status: "partial", ...data };
+  return { status: 'partial', ...data };
 }
 
-export function err(
-  kind: ErrorKind,
-  message: string,
-  raw_response?: unknown,
-): ToolResult {
+export function err(kind: ErrorKind, message: string, raw_response?: unknown): ToolResult {
   const error: ToolError = { kind, message };
   if (raw_response !== undefined) {
     error.raw_response = raw_response;
   }
-  return { status: "error", error };
+  return { status: 'error', error };
 }
 
 export class CoolifyError extends Error {
@@ -51,7 +47,7 @@ export class CoolifyError extends Error {
     opts?: { status?: number; raw_response?: unknown; retryAfter?: number },
   ) {
     super(message);
-    this.name = "CoolifyError";
+    this.name = 'CoolifyError';
     this.kind = kind;
     if (opts) {
       this.status = opts.status;
@@ -68,10 +64,10 @@ export function toErrorResult(e: unknown): ToolResult {
     return err(e.kind, e.message, e.raw_response);
   }
   if (e instanceof Error) {
-    return err("unknown", e.message);
+    return err('unknown', e.message);
   }
-  if (typeof e === "string") {
-    return err("unknown", e || "An unknown error occurred");
+  if (typeof e === 'string') {
+    return err('unknown', e || 'An unknown error occurred');
   }
-  return err("unknown", "An unknown error occurred");
+  return err('unknown', 'An unknown error occurred');
 }

@@ -1,6 +1,6 @@
-import type { CoolifyApiClient } from "./client.js";
+import type { CoolifyApiClient } from './client.js';
 
-export type ResourceKind = "applications" | "databases" | "services";
+export type ResourceKind = 'applications' | 'databases' | 'services';
 
 export interface DeployTriggerResult {
   message: string;
@@ -35,21 +35,30 @@ export interface DeploymentHistory {
 export class DeploymentsApi {
   constructor(private readonly client: CoolifyApiClient) {}
 
-  async trigger(params: { uuid?: string; tag?: string; force?: boolean; pr?: number }): Promise<DeployTriggerResult[]> {
+  async trigger(params: {
+    uuid?: string;
+    tag?: string;
+    force?: boolean;
+    pr?: number;
+  }): Promise<DeployTriggerResult[]> {
     // POST /deploy — Coolify dropped the GET route in 4.2.0 (GET has 405'd since;
     // confirmed live against 4.3.10). POST is accepted on every supported version:
     // 4.1.x registered Route::match(['get','post']). Params stay in the query
     // string — the controller reads $request->input(), which merges query + body.
     // POST is non-idempotent by default, so a transient 5xx is never auto-retried
     // (a retry would queue duplicate deploys).
-    const raw = await this.client.request<unknown>("/deploy", {
-      method: "POST",
+    const raw = await this.client.request<unknown>('/deploy', {
+      method: 'POST',
       query: params as Record<string, string | number | boolean | undefined>,
     });
     // POST /deploy returns { deployments: [...] }, NOT a bare array (confirmed live
     // against Coolify 4.1.2). Normalize defensively so deploy/deploy_watch handlers
     // receive an array; tolerate a bare array (mocks / older versions) and odd bodies.
-    if (raw && typeof raw === "object" && Array.isArray((raw as { deployments?: unknown }).deployments)) {
+    if (
+      raw &&
+      typeof raw === 'object' &&
+      Array.isArray((raw as { deployments?: unknown }).deployments)
+    ) {
       return (raw as { deployments: DeployTriggerResult[] }).deployments;
     }
     if (Array.isArray(raw)) return raw as DeployTriggerResult[];
@@ -57,35 +66,53 @@ export class DeploymentsApi {
   }
 
   async listActive(): Promise<Deployment[]> {
-    const raw = await this.client.request<unknown>("/deployments");
+    const raw = await this.client.request<unknown>('/deployments');
     // Normalize defensively, mirroring trigger()/history(): tolerate a
     // { deployments: [...] } wrapper (Coolify may wrap this like the sibling
     // endpoints — the live shape is unconfirmed), a bare array, or an odd body.
-    if (raw && typeof raw === "object" && Array.isArray((raw as { deployments?: unknown }).deployments)) {
+    if (
+      raw &&
+      typeof raw === 'object' &&
+      Array.isArray((raw as { deployments?: unknown }).deployments)
+    ) {
       return (raw as { deployments: Deployment[] }).deployments;
     }
     if (Array.isArray(raw)) return raw as Deployment[];
     return [];
   }
 
-  async history(appUuid: string, opts?: { skip?: number; take?: number }): Promise<DeploymentHistory> {
+  async history(
+    appUuid: string,
+    opts?: { skip?: number; take?: number },
+  ): Promise<DeploymentHistory> {
     const raw = await this.client.request<unknown>(
       `/deployments/applications/${encodeURIComponent(appUuid)}`,
       { query: opts as Record<string, number | undefined> },
     );
     // Coolify 4.1.x returns { count, deployments: [...] }. Normalize defensively:
     // tolerate a bare array (older/edge responses) or an unexpected body.
-    if (raw && typeof raw === "object" && Array.isArray((raw as { deployments?: unknown }).deployments)) {
+    if (
+      raw &&
+      typeof raw === 'object' &&
+      Array.isArray((raw as { deployments?: unknown }).deployments)
+    ) {
       const r = raw as { count?: number; deployments: Deployment[] };
-      return { count: typeof r.count === "number" ? r.count : r.deployments.length, deployments: r.deployments };
+      return {
+        count: typeof r.count === 'number' ? r.count : r.deployments.length,
+        deployments: r.deployments,
+      };
     }
     if (Array.isArray(raw)) return { count: raw.length, deployments: raw as Deployment[] };
     return { count: 0, deployments: [] };
   }
 
-  get(uuid: string): Promise<Deployment> { return this.client.request(`/deployments/${encodeURIComponent(uuid)}`); }
+  get(uuid: string): Promise<Deployment> {
+    return this.client.request(`/deployments/${encodeURIComponent(uuid)}`);
+  }
 
   cancel(uuid: string): Promise<{ deployment_uuid: string; status: string }> {
-    return this.client.request(`/deployments/${encodeURIComponent(uuid)}/cancel`, { method: "POST" });
+    return this.client.request(`/deployments/${encodeURIComponent(uuid)}/cancel`, {
+      method: 'POST',
+    });
   }
 }

@@ -1,9 +1,9 @@
 // src/core/batch.ts
-import type { ToolError } from "./errors.js";
+import type { ToolError } from './errors.js';
 
 export interface BatchItemResult {
   index: number;
-  status: "ok" | "error";
+  status: 'ok' | 'error';
   result?: unknown;
   error?: ToolError;
 }
@@ -17,9 +17,9 @@ export interface BatchEnvelope {
 
 function toToolError(e: unknown): ToolError {
   if (e instanceof Error) {
-    return { kind: "unknown", message: e.message };
+    return { kind: 'unknown', message: e.message };
   }
-  return { kind: "unknown", message: String(e) };
+  return { kind: 'unknown', message: String(e) };
 }
 
 export async function runBatch<I>(
@@ -36,9 +36,9 @@ export async function runBatch<I>(
       const item = items[index];
       try {
         const result = await worker(item, index);
-        results[index] = { index, status: "ok", result };
+        results[index] = { index, status: 'ok', result };
       } catch (e) {
-        results[index] = { index, status: "error", error: toToolError(e) };
+        results[index] = { index, status: 'error', error: toToolError(e) };
       }
     }
   }
@@ -49,8 +49,8 @@ export async function runBatch<I>(
     await Promise.all(runners);
   }
 
-  const ok = results.filter((r) => r.status === "ok").length;
-  const failed = results.filter((r) => r.status === "error").length;
+  const ok = results.filter((r) => r.status === 'ok').length;
+  const failed = results.filter((r) => r.status === 'error').length;
 
   return {
     total: items.length,

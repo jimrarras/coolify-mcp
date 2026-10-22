@@ -4,8 +4,8 @@ export type Notifier = {
 };
 
 export interface WithHeartbeatOptions {
-  intervalMs?: number;   // default 15000
-  logger?: string;       // default "coolify"
+  intervalMs?: number; // default 15000
+  logger?: string; // default "coolify"
 }
 
 export async function withHeartbeat<T>(
@@ -14,7 +14,7 @@ export async function withHeartbeat<T>(
   options?: WithHeartbeatOptions,
 ): Promise<T> {
   const intervalMs = options?.intervalMs ?? 15_000;
-  const logger = options?.logger ?? "coolify";
+  const logger = options?.logger ?? 'coolify';
   const notify = extra?.sendNotification?.bind(extra);
 
   let handle: ReturnType<typeof setInterval> | undefined;
@@ -22,8 +22,8 @@ export async function withHeartbeat<T>(
   if (notify) {
     handle = setInterval(() => {
       void notify({
-        method: "notifications/progress",
-        params: { logger, message: "still running…" },
+        method: 'notifications/progress',
+        params: { logger, message: 'still running…' },
       });
     }, intervalMs);
   }

@@ -1,21 +1,23 @@
 // Help and version text for the CLI. Kept dependency-free and side-effect-free
 // so dispatch can print and exit without touching config or network.
-import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Injected by esbuild at build time (see esbuild.config.mjs `define`).
 declare const __PKG_VERSION__: string | undefined;
 
 export function getVersion(): string {
-  if (typeof __PKG_VERSION__ === "string") return __PKG_VERSION__;
+  if (typeof __PKG_VERSION__ === 'string') return __PKG_VERSION__;
   // Dev fallback (vitest/tsx run the sources directly, no define available).
   const here = dirname(fileURLToPath(import.meta.url));
-  const pkg = JSON.parse(readFileSync(join(here, "..", "..", "package.json"), "utf8")) as { version: string };
+  const pkg = JSON.parse(readFileSync(join(here, '..', '..', 'package.json'), 'utf8')) as {
+    version: string;
+  };
   return pkg.version;
 }
 
-export type HelpTopic = "init" | "doctor" | "instances";
+export type HelpTopic = 'init' | 'doctor' | 'instances';
 
 const TOP = `coolify-mcp — MCP server + CLI for managing Coolify instances
 
@@ -98,9 +100,13 @@ SSH connectivity, and the read-only DB role (when configured).`;
 
 export function helpText(topic?: string): string {
   switch (topic) {
-    case "instances": return INSTANCES;
-    case "init": return INIT;
-    case "doctor": return DOCTOR;
-    default: return TOP;
+    case 'instances':
+      return INSTANCES;
+    case 'init':
+      return INIT;
+    case 'doctor':
+      return DOCTOR;
+    default:
+      return TOP;
   }
 }

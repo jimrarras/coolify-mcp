@@ -1,13 +1,13 @@
 // src/mcp/dispatch.ts
-import { toErrorResult } from "../core/errors.js";
-import { redact, scrubInlineSecrets } from "../core/redact.js";
-import type { ToolResult } from "../core/errors.js";
-import type { ToolDef, ToolContext } from "./tools/types.js";
-import type { InstanceRegistry } from "../core/registry.js";
-import type { Notifier } from "../core/heartbeat.js";
+import { toErrorResult } from '../core/errors.js';
+import { redact, scrubInlineSecrets } from '../core/redact.js';
+import type { ToolResult } from '../core/errors.js';
+import type { ToolDef, ToolContext } from './tools/types.js';
+import type { InstanceRegistry } from '../core/registry.js';
+import type { Notifier } from '../core/heartbeat.js';
 
 export interface DispatchResult {
-  content: Array<{ type: "text"; text: string }>;
+  content: Array<{ type: 'text'; text: string }>;
 }
 
 export async function dispatch(
@@ -21,18 +21,18 @@ export async function dispatch(
   const tool = tools.find((t) => t.name === name);
   if (!tool) {
     const result = {
-      status: "error" as const,
+      status: 'error' as const,
       error: {
-        kind: "invalid_input" as const,
+        kind: 'invalid_input' as const,
         message: `Unknown tool: ${name}`,
       },
     };
-    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+    return { content: [{ type: 'text', text: JSON.stringify(result) }] };
   }
 
   let toolResult: ToolResult;
   try {
-    const instanceName = typeof args.instance === "string" ? args.instance : undefined;
+    const instanceName = typeof args.instance === 'string' ? args.instance : undefined;
     const inst = registry.get(instanceName); // throws invalid_input on unknown
     const { instance: _omit, ...toolArgs } = args;
     const ctx: ToolContext = {
@@ -54,7 +54,7 @@ export async function dispatch(
   // client: scrub inline credentials from the (developer-authored) message and
   // key-redact the raw_response. Success payloads are NOT redacted (e.g. manage_env
   // returns env values by design).
-  if (toolResult.status === "error") {
+  if (toolResult.status === 'error') {
     toolResult = {
       ...toolResult,
       error: {
@@ -70,5 +70,5 @@ export async function dispatch(
     };
   }
 
-  return { content: [{ type: "text", text: JSON.stringify(toolResult) }] };
+  return { content: [{ type: 'text', text: JSON.stringify(toolResult) }] };
 }

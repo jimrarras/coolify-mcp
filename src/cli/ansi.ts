@@ -26,13 +26,15 @@ export function makePalette(enabled: boolean): Palette {
 
 /** Per the NO_COLOR spec, presence of the variable (even empty) disables color. */
 export function colorEnabled(env: Record<string, string | undefined>, isTTY: boolean): boolean {
-  if ("NO_COLOR" in env) return false;
+  if ('NO_COLOR' in env) return false;
   return isTTY;
 }
 
 /** The palette for this process's real stdout/env. */
 export function defaultPalette(): Palette {
-  return makePalette(colorEnabled(process.env as Record<string, string | undefined>, Boolean(process.stdout.isTTY)));
+  return makePalette(
+    colorEnabled(process.env as Record<string, string | undefined>, Boolean(process.stdout.isTTY)),
+  );
 }
 
 /**
@@ -46,10 +48,19 @@ export function paintLine(line: string, c: Palette): string {
   const token = m[1];
   const rest = line.slice(token.length);
   switch (token) {
-    case "PASS": case "✓": return c.green(token) + rest;
-    case "FAIL": case "✗": case "error:": return c.red(token) + rest;
-    case "WARN": case "⚠": return c.yellow(token) + rest;
-    case "SKIP": return c.dim(token) + rest;
-    default: return line;
+    case 'PASS':
+    case '✓':
+      return c.green(token) + rest;
+    case 'FAIL':
+    case '✗':
+    case 'error:':
+      return c.red(token) + rest;
+    case 'WARN':
+    case '⚠':
+      return c.yellow(token) + rest;
+    case 'SKIP':
+      return c.dim(token) + rest;
+    default:
+      return line;
   }
 }

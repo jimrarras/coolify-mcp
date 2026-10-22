@@ -1,9 +1,9 @@
 // src/core/ssh/client.ts
-import { createHash, timingSafeEqual } from "crypto";
-import { readFileSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
-import { Client } from "ssh2";
+import { createHash, timingSafeEqual } from 'crypto';
+import { readFileSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
+import { Client } from 'ssh2';
 
 // Upper bound on a single host-file read. The allowlist scope (/data/coolify/**)
 // can contain large logs/artifacts; reading a multi-GB file would buffer it
@@ -37,28 +37,32 @@ export interface SshExecResult {
  * falls back to ~/.ssh/known_hosts (derived from homeDir). Still fail-closed:
  * a missing/non-matching file => false.
  */
-export function makeHostVerifier(cfg: SshConnectConfig, homeDir: string): (keyBuf: Buffer) => boolean {
+export function makeHostVerifier(
+  cfg: SshConnectConfig,
+  homeDir: string,
+): (keyBuf: Buffer) => boolean {
   const expectedFingerprint = cfg.hostFingerprint;
   // Default source: when neither a fingerprint nor an explicit known_hosts path is given,
   // fall back to ~/.ssh/known_hosts. Still fail-closed: a missing/non-matching file => false.
-  const knownHostsPath = cfg.knownHostsPath ?? (expectedFingerprint ? undefined : join(homeDir, ".ssh", "known_hosts"));
+  const knownHostsPath =
+    cfg.knownHostsPath ?? (expectedFingerprint ? undefined : join(homeDir, '.ssh', 'known_hosts'));
   const sshHost = cfg.host;
   const sshPort = cfg.port;
 
   return (keyBuf: Buffer): boolean => {
     // Branch 1: inline fingerprint takes precedence.
     if (expectedFingerprint) {
-      const digest = createHash("sha256").update(keyBuf).digest();
+      const digest = createHash('sha256').update(keyBuf).digest();
       // Normalise expected: strip colons, lowercase, then try to parse as hex or base64.
-      const norm = expectedFingerprint.replace(/:/g, "").toLowerCase();
+      const norm = expectedFingerprint.replace(/:/g, '').toLowerCase();
       let expectedBuf: Buffer;
       if (/^[0-9a-f]{64}$/.test(norm)) {
         // 64 hex chars = 32 bytes
-        expectedBuf = Buffer.from(norm, "hex");
+        expectedBuf = Buffer.from(norm, 'hex');
       } else {
         // Assume base64 (e.g. "SHA256:…" style — strip the prefix if present)
-        const b64 = expectedFingerprint.replace(/^SHA256:/i, "");
-        expectedBuf = Buffer.from(b64, "base64");
+        const b64 = expectedFingerprint.replace(/^SHA256:/i, '');
+        expectedBuf = Buffer.from(b64, 'base64');
       }
       if (digest.length !== expectedBuf.length) {
         return false;
@@ -69,8 +73,8 @@ export function makeHostVerifier(cfg: SshConnectConfig, homeDir: string): (keyBu
     // Branch 2: fall back to known_hosts file lookup.
     if (knownHostsPath) {
       try {
-        const content = readFileSync(knownHostsPath).toString("utf8");
-        const presentedDigest = createHash("sha256").update(keyBuf).digest();
+        const content = readFileSync(knownHostsPath).toString('utf8');
+        const presentedDigest = createHash('sha256').update(keyBuf).digest();
 
         // Hostnames to match: bare "host" and "[host]:port" form.
         const hostToken = sshHost;
@@ -79,21 +83,24 @@ export function makeHostVerifier(cfg: SshConnectConfig, homeDir: string): (keyBu
         for (const rawLine of content.split(/\r?\n/)) {
           const line = rawLine.trim();
           // Skip comments and empty lines.
-          if (!line || line.startsWith("#")) continue;
+          if (!line || line.startsWith('#')) continue;
 
           // known_hosts format: "hostname[,hostname2,...] key-type base64-key [comment]"
           const parts = line.split(/\s+/);
           if (parts.length < 3) continue;
 
           const [hostField, , keyB64] = parts;
-          const hosts = hostField.split(",");
+          const hosts = hostField.split(',');
           const matches = hosts.some((h) => h === hostToken || h === portToken);
           if (!matches) continue;
 
           // Decode the stored key and SHA-256 it, then compare timing-safely.
-          const storedKeyBuf = Buffer.from(keyB64, "base64");
-          const storedDigest = createHash("sha256").update(storedKeyBuf).digest();
-          if (storedDigest.length === presentedDigest.length && timingSafeEqual(storedDigest, presentedDigest)) {
+          const storedKeyBuf = Buffer.from(keyB64, 'base64');
+          const storedDigest = createHash('sha256').update(storedKeyBuf).digest();
+          if (
+            storedDigest.length === presentedDigest.length &&
+            timingSafeEqual(storedDigest, presentedDigest)
+          ) {
             return true;
           }
         }
@@ -119,20 +126,20 @@ export class SshClient {
   connect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const conn = new Client();
-      conn.on("ready", () => {
+      conn.on('ready', () => {
         // A dropped socket must not leave a dead conn behind: when THIS
         // connection closes or errors after ready, mark the client
         // disconnected so pooled callers reconnect instead of getting
         // "Not connected" from ssh2 forever. Guard on identity — a later
         // reconnect replaces this.conn, and the old conn's close event must
         // not clobber the new connection.
-        conn.on("close", () => {
+        conn.on('close', () => {
           if (this.conn === conn) this.conn = null;
         });
         this.conn = conn;
         resolve();
       });
-      conn.on("error", (err: Error) => {
+      conn.on('error', (err: Error) => {
         if (this.conn === conn) this.conn = null;
         reject(err);
       });
@@ -158,11 +165,11 @@ export class SshClient {
         readyTimeout: 10_000,
         hostVerifier,
         algorithms: {
-          kex: ["curve25519-sha256", "ecdh-sha2-nistp256"],
-          cipher: ["aes256-gcm@openssh.com", "aes128-gcm@openssh.com"],
-          hmac: ["hmac-sha2-256-etm@openssh.com", "hmac-sha2-512-etm@openssh.com"],
+          kex: ['curve25519-sha256', 'ecdh-sha2-nistp256'],
+          cipher: ['aes256-gcm@openssh.com', 'aes128-gcm@openssh.com'],
+          hmac: ['hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com'],
           // H2R5: pin server host-key algorithms — excludes legacy ssh-dss and sha1 ssh-rsa.
-          serverHostKey: ["ssh-ed25519", "ecdsa-sha2-nistp256", "rsa-sha2-256", "rsa-sha2-512"],
+          serverHostKey: ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'rsa-sha2-256', 'rsa-sha2-512'],
         },
       });
     });
@@ -183,8 +190,8 @@ export class SshClient {
           reject(err);
           return;
         }
-        let stdout = "";
-        let stderr = "";
+        let stdout = '';
+        let stderr = '';
         let outBytes = 0;
         let settled = false;
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -197,7 +204,7 @@ export class SshClient {
           if (timer) clearTimeout(timer);
           if (kill) {
             try {
-              stream.signal("KILL");
+              stream.signal('KILL');
             } catch {
               // stream may already be closed — ignore
             }
@@ -220,16 +227,19 @@ export class SshClient {
           if (maxOutputBytes !== undefined) {
             outBytes += data.length;
             if (outBytes > maxOutputBytes) {
-              settle(() => reject(new Error(`exec: output exceeded the ${maxOutputBytes}-byte limit`)), true);
+              settle(
+                () => reject(new Error(`exec: output exceeded the ${maxOutputBytes}-byte limit`)),
+                true,
+              );
               return;
             }
           }
           if (isStderr) stderr += data.toString();
           else stdout += data.toString();
         };
-        stream.on("data", (data: Buffer) => onChunk(data, false));
-        stream.stderr.on("data", (data: Buffer) => onChunk(data, true));
-        stream.on("close", (code: number | null) => {
+        stream.on('data', (data: Buffer) => onChunk(data, false));
+        stream.stderr.on('data', (data: Buffer) => onChunk(data, true));
+        stream.on('close', (code: number | null) => {
           settle(() => resolve({ code: code ?? -1, stdout, stderr }), false);
         });
         // Feed stdin when provided (e.g. a secret read via `$(cat)` so it never
@@ -255,10 +265,10 @@ export class SshClient {
           return;
         }
 
-        let buffer = "";
+        let buffer = '';
 
         const flushBuffer = () => {
-          const parts = buffer.split("\n");
+          const parts = buffer.split('\n');
           // everything except the last piece is a complete line
           for (let i = 0; i < parts.length - 1; i++) {
             onLine(parts[i]);
@@ -266,16 +276,16 @@ export class SshClient {
           buffer = parts[parts.length - 1];
         };
 
-        stream.on("data", (data: Buffer) => {
+        stream.on('data', (data: Buffer) => {
           buffer += data.toString();
           flushBuffer();
         });
 
-        stream.on("close", (code: number | null) => {
+        stream.on('close', (code: number | null) => {
           // flush any remaining partial line
           if (buffer.length > 0) {
             onLine(buffer);
-            buffer = "";
+            buffer = '';
           }
           resolve({ code });
         });
@@ -283,7 +293,7 @@ export class SshClient {
         // Wire up abort signal to kill the remote process
         const abortHandler = () => {
           try {
-            stream.signal("KILL");
+            stream.signal('KILL');
           } catch {
             // ignore if stream already closed
           }
@@ -291,7 +301,7 @@ export class SshClient {
         if (signal.aborted) {
           abortHandler();
         } else {
-          signal.addEventListener("abort", abortHandler, { once: true });
+          signal.addEventListener('abort', abortHandler, { once: true });
         }
       });
     });
@@ -326,7 +336,7 @@ export class SshClient {
               reject(statErr);
               return;
             }
-            const size = typeof stats?.size === "number" ? stats.size : 0;
+            const size = typeof stats?.size === 'number' ? stats.size : 0;
             if (size > MAX_READ_FILE_BYTES) {
               reject(
                 new Error(
@@ -349,7 +359,7 @@ export class SshClient {
                 );
                 return;
               }
-              resolve(data.toString("utf8"));
+              resolve(data.toString('utf8'));
             });
           });
         };
@@ -362,15 +372,13 @@ export class SshClient {
               return;
             }
             const allowed = allowedPrefixes.some((prefix) =>
-              prefix.endsWith("/")
-                ? resolvedPath.startsWith(prefix)
-                : resolvedPath === prefix,
+              prefix.endsWith('/') ? resolvedPath.startsWith(prefix) : resolvedPath === prefix,
             );
             if (!allowed) {
               reject(
                 new Error(
                   `readFile: resolved path "${resolvedPath}" is outside allowed prefixes ` +
-                    `(symlink escape detected). Allowed: ${allowedPrefixes.join(", ")}`,
+                    `(symlink escape detected). Allowed: ${allowedPrefixes.join(', ')}`,
                 ),
               );
               return;
@@ -401,7 +409,7 @@ export class SshClient {
 
   private _requireConn(): InstanceType<typeof Client> {
     if (!this.conn) {
-      throw new Error("SshClient: not connected. Call connect() first.");
+      throw new Error('SshClient: not connected. Call connect() first.');
     }
     return this.conn;
   }

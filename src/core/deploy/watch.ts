@@ -1,11 +1,11 @@
 // src/core/deploy/watch.ts
-import type { DeploymentsApi, DeployTriggerResult } from "../api/deployments.js";
-import type { ServersApi } from "../api/servers.js";
+import type { DeploymentsApi, DeployTriggerResult } from '../api/deployments.js';
+import type { ServersApi } from '../api/servers.js';
 
 export interface DeployWatchResult {
   resource_uuid: string;
   deployment_uuid?: string;
-  final_status: "finished" | "failed" | "cancelled" | "skipped" | "unknown";
+  final_status: 'finished' | 'failed' | 'cancelled' | 'skipped' | 'unknown';
   logs_tail?: string;
   // Set when polling threw (final_status "unknown" via the independent-settling
   // catch below) — preserves the error kind so a single-resource watch can still
@@ -21,36 +21,38 @@ export interface DeployWatchDeps {
   timeoutMs?: number;
 }
 
-type TerminalStatus = "finished" | "failed" | "cancelled" | "skipped" | "unknown";
-const TERMINAL_STATUSES = new Set<string>(["finished", "failed", "cancelled", "error", "skipped"]);
+type TerminalStatus = 'finished' | 'failed' | 'cancelled' | 'skipped' | 'unknown';
+const TERMINAL_STATUSES = new Set<string>(['finished', 'failed', 'cancelled', 'error', 'skipped']);
 
 // Per-poll fault tolerance: a status GET may fail because the deployment record
 // is not yet visible just after trigger (404) or due to a transient gateway/5xx.
 // Tolerate a bounded number of CONSECUTIVE such failures before settling to
 // "unknown"; permanent errors (auth, invalid_input) settle immediately.
 const MAX_CONSECUTIVE_POLL_ERRORS = 5;
-const TOLERABLE_POLL_ERROR_KINDS = new Set<string>(["not_found", "transient_exhausted"]);
+const TOLERABLE_POLL_ERROR_KINDS = new Set<string>(['not_found', 'transient_exhausted']);
 
 function errorKindOf(e: unknown): string {
-  return typeof (e as { kind?: unknown })?.kind === "string" ? (e as { kind: string }).kind : "unknown";
+  return typeof (e as { kind?: unknown })?.kind === 'string'
+    ? (e as { kind: string }).kind
+    : 'unknown';
 }
 
 function isSkippedMessage(message: string): boolean {
   const lower = message.toLowerCase();
   return (
-    lower.includes("nothing to deploy") ||
-    lower.includes("already up to date") ||
-    lower.includes("skipped") ||
-    lower.includes("no change")
+    lower.includes('nothing to deploy') ||
+    lower.includes('already up to date') ||
+    lower.includes('skipped') ||
+    lower.includes('no change')
   );
 }
 
 function mapTerminalStatus(raw: string): TerminalStatus {
-  if (raw === "finished") return "finished";
-  if (raw === "failed" || raw === "error") return "failed";
-  if (raw === "cancelled") return "cancelled";
-  if (raw === "skipped") return "skipped";
-  return "unknown";
+  if (raw === 'finished') return 'finished';
+  if (raw === 'failed' || raw === 'error') return 'failed';
+  if (raw === 'cancelled') return 'cancelled';
+  if (raw === 'skipped') return 'skipped';
+  return 'unknown';
 }
 
 function cap(value: number, min: number, max: number): number {
@@ -68,9 +70,9 @@ async function watchSingleDeployment(
   // No deployment_uuid: classify from message or use server resource polling
   if (!deployment_uuid) {
     if (isSkippedMessage(message)) {
-      return { resource_uuid, final_status: "skipped" };
+      return { resource_uuid, final_status: 'skipped' };
     }
-    return { resource_uuid, final_status: "unknown" };
+    return { resource_uuid, final_status: 'unknown' };
   }
 
   let attempt = 0;
@@ -81,7 +83,12 @@ async function watchSingleDeployment(
 
   while (true) {
     if (Date.now() >= deadline) {
-      return { resource_uuid, deployment_uuid, final_status: "unknown", ...(lastError ? { error: lastError } : {}) };
+      return {
+        resource_uuid,
+        deployment_uuid,
+        final_status: 'unknown',
+        ...(lastError ? { error: lastError } : {}),
+      };
     }
 
     let deployment: Awaited<ReturnType<typeof deps.deployments.get>>;
@@ -94,21 +101,28 @@ async function watchSingleDeployment(
       consecutiveErrors++;
       // Permanent errors settle immediately; tolerable ones (not-yet-visible 404 /
       // transient 5xx) keep polling until the streak or the deadline is exceeded.
-      if (!TOLERABLE_POLL_ERROR_KINDS.has(kind) || consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) {
-        return { resource_uuid, deployment_uuid, final_status: "unknown", error: lastError };
+      if (
+        !TOLERABLE_POLL_ERROR_KINDS.has(kind) ||
+        consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS
+      ) {
+        return { resource_uuid, deployment_uuid, final_status: 'unknown', error: lastError };
       }
       // Back off on the ERROR streak (which resets on a successful poll), kept
       // separate from `attempt` so transient blips don't inflate the steady-state
       // poll cadence once polling resumes.
-      const backoff = cap(BASE_DELAY_MS * Math.pow(2, consecutiveErrors - 1), BASE_DELAY_MS, MAX_DELAY_MS);
+      const backoff = cap(
+        BASE_DELAY_MS * Math.pow(2, consecutiveErrors - 1),
+        BASE_DELAY_MS,
+        MAX_DELAY_MS,
+      );
       await sleep(backoff);
       continue;
     }
 
-    const status = deployment.status ?? "unknown";
+    const status = deployment.status ?? 'unknown';
 
-    const logText = typeof deployment.logs === "string" ? deployment.logs : undefined;
-    const logLines = logText ? logText.split("\n").length : 0;
+    const logText = typeof deployment.logs === 'string' ? deployment.logs : undefined;
+    const logLines = logText ? logText.split('\n').length : 0;
 
     if (deps.onProgress) {
       deps.onProgress({ resource_uuid, status, lines: logLines });
@@ -116,7 +130,7 @@ async function watchSingleDeployment(
 
     if (TERMINAL_STATUSES.has(status)) {
       const final_status = mapTerminalStatus(status);
-      const logs_tail = logText ? logText.split("\n").slice(-50).join("\n") : undefined;
+      const logs_tail = logText ? logText.split('\n').slice(-50).join('\n') : undefined;
       return { resource_uuid, deployment_uuid, final_status, logs_tail };
     }
 
@@ -141,17 +155,18 @@ export async function runDeployWatch(
   // the whole batch and discarding the already-computed sibling results.
   const results = await Promise.all(
     triggers.map((trigger) =>
-      watchSingleDeployment(trigger, deps, deadline).catch(
-        (e: unknown): DeployWatchResult => ({
-          resource_uuid: trigger.resource_uuid,
-          deployment_uuid: trigger.deployment_uuid,
-          final_status: "unknown",
-          error: {
-            kind: typeof (e as { kind?: unknown })?.kind === "string" ? (e as { kind: string }).kind : "unknown",
-            message: e instanceof Error ? e.message : String(e),
-          },
-        }),
-      ),
+      watchSingleDeployment(trigger, deps, deadline).catch((e: unknown): DeployWatchResult => ({
+        resource_uuid: trigger.resource_uuid,
+        deployment_uuid: trigger.deployment_uuid,
+        final_status: 'unknown',
+        error: {
+          kind:
+            typeof (e as { kind?: unknown })?.kind === 'string'
+              ? (e as { kind: string }).kind
+              : 'unknown',
+          message: e instanceof Error ? e.message : String(e),
+        },
+      })),
     ),
   );
 

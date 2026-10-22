@@ -1,76 +1,104 @@
-import { describe, it, expect } from "vitest";
-import { buildConfigObject, generateDbRoleSql, generatePassword, isValidDbRoleName, runInitFlow } from "./init.js";
-import { makeScriptedIO } from "./io.js";
+import { describe, it, expect } from 'vitest';
+import {
+  buildConfigObject,
+  generateDbRoleSql,
+  generatePassword,
+  isValidDbRoleName,
+  runInitFlow,
+} from './init.js';
+import { makeScriptedIO } from './io.js';
 
-describe("buildConfigObject", () => {
+describe('buildConfigObject', () => {
   const full = {
-    instanceName: "default", baseUrl: "https://h", enableHostOps: true, token: "1|secret",
-    ssh: { keyPath: "/k", hostServer: "srv1", host: "1.2.3.4", passphrase: "pp", fingerprint: "SHA256:x" },
-    db: { readonlyUser: "coolify_ro", readonlyPassword: "dbpw" },
+    instanceName: 'default',
+    baseUrl: 'https://h',
+    enableHostOps: true,
+    token: '1|secret',
+    ssh: {
+      keyPath: '/k',
+      hostServer: 'srv1',
+      host: '1.2.3.4',
+      passphrase: 'pp',
+      fingerprint: 'SHA256:x',
+    },
+    db: { readonlyUser: 'coolify_ro', readonlyPassword: 'dbpw' },
   };
 
-  it("inlines the actual secret values by default (envSecrets:false)", () => {
+  it('inlines the actual secret values by default (envSecrets:false)', () => {
     const cfg = JSON.stringify(buildConfigObject({ ...full, envSecrets: false }));
     expect(cfg).toContain('"token":"1|secret"');
     expect(cfg).toContain('"passphrase":"pp"');
     expect(cfg).toContain('"readonlyPassword":"dbpw"');
-    expect(cfg).not.toContain("${COOLIFY_TOKEN}");
+    expect(cfg).not.toContain('${COOLIFY_TOKEN}');
   });
 
-  it("uses ${ENV} refs with no literal secrets when envSecrets:true", () => {
+  it('uses ${ENV} refs with no literal secrets when envSecrets:true', () => {
     const cfg = JSON.stringify(buildConfigObject({ ...full, envSecrets: true }));
-    expect(cfg).toContain("${COOLIFY_TOKEN}");
-    expect(cfg).toContain("${COOLIFY_SSH_KEY_PASSPHRASE}");
-    expect(cfg).toContain("${COOLIFY_DB_RO_PASSWORD}");
-    expect(cfg).not.toContain("1|secret");
+    expect(cfg).toContain('${COOLIFY_TOKEN}');
+    expect(cfg).toContain('${COOLIFY_SSH_KEY_PASSPHRASE}');
+    expect(cfg).toContain('${COOLIFY_DB_RO_PASSWORD}');
+    expect(cfg).not.toContain('1|secret');
     expect(cfg).not.toContain('"pp"');
   });
 
-  it("omits ssh/db blocks when not configured", () => {
-    const obj = buildConfigObject({ instanceName: "default", baseUrl: "https://h", enableHostOps: false, envSecrets: false, token: "1|s" }) as { instances: Record<string, { ssh?: unknown; db?: unknown; enableHostOps: boolean }> };
+  it('omits ssh/db blocks when not configured', () => {
+    const obj = buildConfigObject({
+      instanceName: 'default',
+      baseUrl: 'https://h',
+      enableHostOps: false,
+      envSecrets: false,
+      token: '1|s',
+    }) as { instances: Record<string, { ssh?: unknown; db?: unknown; enableHostOps: boolean }> };
     const inst = obj.instances.default;
     expect(inst.enableHostOps).toBe(false);
     expect(inst.ssh).toBeUndefined();
     expect(inst.db).toBeUndefined();
   });
 
-  it("omits ssh.passphrase when the key has no passphrase", () => {
-    const obj = buildConfigObject({ instanceName: "default", baseUrl: "https://h", enableHostOps: true, envSecrets: false, token: "1|s", ssh: { keyPath: "/k" } }) as { instances: Record<string, { ssh: Record<string, unknown> }> };
+  it('omits ssh.passphrase when the key has no passphrase', () => {
+    const obj = buildConfigObject({
+      instanceName: 'default',
+      baseUrl: 'https://h',
+      enableHostOps: true,
+      envSecrets: false,
+      token: '1|s',
+      ssh: { keyPath: '/k' },
+    }) as { instances: Record<string, { ssh: Record<string, unknown> }> };
     expect(obj.instances.default.ssh.passphrase).toBeUndefined();
   });
 });
 
-describe("generateDbRoleSql", () => {
-  it("includes CREATE ROLE, GRANT SELECT, REVOKE EXECUTE", () => {
-    const sql = generateDbRoleSql("coolify_ro", "pw123");
+describe('generateDbRoleSql', () => {
+  it('includes CREATE ROLE, GRANT SELECT, REVOKE EXECUTE', () => {
+    const sql = generateDbRoleSql('coolify_ro', 'pw123');
     expect(sql).toMatch(/CREATE ROLE coolify_ro/);
     expect(sql).toMatch(/GRANT SELECT/);
     expect(sql).toMatch(/REVOKE EXECUTE/);
-    expect(sql).toContain("pw123");
+    expect(sql).toContain('pw123');
   });
-  it("throws on an unsafe role name (export-safety)", () => {
-    expect(() => generateDbRoleSql("ro; DROP TABLE x", "pw")).toThrow(/invalid DB role name/);
+  it('throws on an unsafe role name (export-safety)', () => {
+    expect(() => generateDbRoleSql('ro; DROP TABLE x', 'pw')).toThrow(/invalid DB role name/);
   });
 });
 
-describe("isValidDbRoleName", () => {
-  it("accepts valid identifiers and rejects unsafe ones", () => {
-    expect(isValidDbRoleName("coolify_ro")).toBe(true);
-    expect(isValidDbRoleName("_x9")).toBe(true);
-    expect(isValidDbRoleName("9bad")).toBe(false);
-    expect(isValidDbRoleName("ro; DROP")).toBe(false);
+describe('isValidDbRoleName', () => {
+  it('accepts valid identifiers and rejects unsafe ones', () => {
+    expect(isValidDbRoleName('coolify_ro')).toBe(true);
+    expect(isValidDbRoleName('_x9')).toBe(true);
+    expect(isValidDbRoleName('9bad')).toBe(false);
+    expect(isValidDbRoleName('ro; DROP')).toBe(false);
     expect(isValidDbRoleName("ro'")).toBe(false);
-    expect(isValidDbRoleName("")).toBe(false);
+    expect(isValidDbRoleName('')).toBe(false);
   });
 });
 
-describe("generatePassword", () => {
-  it("returns a 32-char alphanumeric password", () => {
+describe('generatePassword', () => {
+  it('returns a 32-char alphanumeric password', () => {
     const p = generatePassword();
     expect(p).toHaveLength(32);
     expect(p).toMatch(/^[A-Za-z0-9]+$/);
   });
-  it("is non-deterministic", () => {
+  it('is non-deterministic', () => {
     expect(generatePassword()).not.toBe(generatePassword());
   });
 });
@@ -78,158 +106,231 @@ describe("generatePassword", () => {
 function deps(answers: string[], over: Partial<Parameters<typeof runInitFlow>[0]> = {}) {
   const io = makeScriptedIO(answers);
   const base = {
-    io, env: { COOLIFY_BASE_URL: "https://coolify.example.com", COOLIFY_TOKEN: "1|s" },
-    makeApi: () => ({ health: async () => "OK", version: async () => "4.1.2" }),
-    resolveControlHost: async () => ({ serverUuid: "srv1", host: "coolify.example.com", user: "root", port: 22 }),
-    listServers: async () => [{ uuid: "srv1", name: "localhost" }],
-    discoverKey: async () => ({ path: "/home/u/.ssh/id_ed25519", passphrase: "pw" }),
-    getFingerprint: async () => "SHA256:abc",
-    writeConfig: (_o: unknown) => "/home/u/.coolify-mcp/config.json",
+    io,
+    env: { COOLIFY_BASE_URL: 'https://coolify.example.com', COOLIFY_TOKEN: '1|s' },
+    makeApi: () => ({ health: async () => 'OK', version: async () => '4.1.2' }),
+    resolveControlHost: async () => ({
+      serverUuid: 'srv1',
+      host: 'coolify.example.com',
+      user: 'root',
+      port: 22,
+    }),
+    listServers: async () => [{ uuid: 'srv1', name: 'localhost' }],
+    discoverKey: async () => ({ path: '/home/u/.ssh/id_ed25519', passphrase: 'pw' }),
+    getFingerprint: async () => 'SHA256:abc',
+    writeConfig: (_o: unknown) => '/home/u/.coolify-mcp/config.json',
   };
   return { io, deps: { ...base, ...over } as Parameters<typeof runInitFlow>[0] };
 }
 
-describe("runInitFlow", () => {
-  it("API-only path inlines the token by default and prints the snippet", async () => {
+describe('runInitFlow', () => {
+  it('API-only path inlines the token by default and prints the snippet', async () => {
     // answers: baseUrl(enter→default), token(enter→default), instanceName(enter→default), enable host-ops? n
     const written: unknown[] = [];
-    const { io, deps: d } = deps(["", "", "", "n"], { writeConfig: (o) => { written.push(o); return "/cfg"; } });
+    const { io, deps: d } = deps(['', '', '', 'n'], {
+      writeConfig: (o) => {
+        written.push(o);
+        return '/cfg';
+      },
+    });
     const code = await runInitFlow(d);
     expect(code).toBe(0);
     const cfg = JSON.stringify(written[0]);
     expect(cfg).toContain('"token":"1|s"'); // inline by default — no env var needed
-    expect(cfg).not.toContain("${COOLIFY_TOKEN}");
-    expect(cfg).not.toContain("id_ed25519");
-    expect(io.printed.join("\n")).toMatch(/no environment variables needed/i);
-    expect(io.printed.join("\n")).toMatch(/doctor/);
+    expect(cfg).not.toContain('${COOLIFY_TOKEN}');
+    expect(cfg).not.toContain('id_ed25519');
+    expect(io.printed.join('\n')).toMatch(/no environment variables needed/i);
+    expect(io.printed.join('\n')).toMatch(/doctor/);
   });
 
-  it("host-ops path discovers a key, confirms fingerprint, writes ssh block with INLINE passphrase by default", async () => {
+  it('host-ops path discovers a key, confirms fingerprint, writes ssh block with INLINE passphrase by default', async () => {
     // answers: baseUrl, token, instanceName, host-ops? y, (control host auto since single match), fingerprint confirm y, db? n
     const written: unknown[] = [];
-    const { deps: d } = deps(["", "", "", "y", "y", "n"], { writeConfig: (o) => { written.push(o); return "/cfg"; } });
+    const { deps: d } = deps(['', '', '', 'y', 'y', 'n'], {
+      writeConfig: (o) => {
+        written.push(o);
+        return '/cfg';
+      },
+    });
     const code = await runInitFlow(d);
     expect(code).toBe(0);
     const cfg = JSON.stringify(written[0]);
-    expect(cfg).toContain("\"keyPath\":\"/home/u/.ssh/id_ed25519\"");
-    expect(cfg).toContain("\"passphrase\":\"pw\""); // inline by default
-    expect(cfg).not.toContain("${COOLIFY_SSH_KEY_PASSPHRASE}");
-    expect(cfg).toContain("SHA256:abc");
+    expect(cfg).toContain('"keyPath":"/home/u/.ssh/id_ed25519"');
+    expect(cfg).toContain('"passphrase":"pw"'); // inline by default
+    expect(cfg).not.toContain('${COOLIFY_SSH_KEY_PASSPHRASE}');
+    expect(cfg).toContain('SHA256:abc');
   });
 
-  it("--env-secrets mode writes ${ENV} refs and lists the vars to set", async () => {
+  it('--env-secrets mode writes ${ENV} refs and lists the vars to set', async () => {
     const written: unknown[] = [];
-    const { io, deps: d } = deps(["", "", "", "n"], { envSecrets: true, writeConfig: (o) => { written.push(o); return "/cfg"; } });
+    const { io, deps: d } = deps(['', '', '', 'n'], {
+      envSecrets: true,
+      writeConfig: (o) => {
+        written.push(o);
+        return '/cfg';
+      },
+    });
     const code = await runInitFlow(d);
     expect(code).toBe(0);
     const cfg = JSON.stringify(written[0]);
-    expect(cfg).toContain("${COOLIFY_TOKEN}");
+    expect(cfg).toContain('${COOLIFY_TOKEN}');
     expect(cfg).not.toContain('"token":"1|s"');
-    expect(io.printed.join("\n")).toMatch(/COOLIFY_TOKEN=1\|s/);
+    expect(io.printed.join('\n')).toMatch(/COOLIFY_TOKEN=1\|s/);
   });
 
-  it("ppk-only stops host-ops with guidance, still writes API config", async () => {
-    const { io, deps: d } = deps(["", "", "", "y"], { discoverKey: async () => ({ ppkOnly: true }) });
+  it('ppk-only stops host-ops with guidance, still writes API config', async () => {
+    const { io, deps: d } = deps(['', '', '', 'y'], {
+      discoverKey: async () => ({ ppkOnly: true }),
+    });
     const code = await runInitFlow(d);
     expect(code).toBe(0);
-    expect(io.printed.join("\n")).toMatch(/puttygen|OpenSSH/i);
+    expect(io.printed.join('\n')).toMatch(/puttygen|OpenSSH/i);
   });
 
-  it("skips host-ops gracefully when the picked control host also fails to resolve", async () => {
+  it('skips host-ops gracefully when the picked control host also fails to resolve', async () => {
     // answers: baseUrl, token, instanceName, host-ops? y, then pick a (bad) server
     const written: unknown[] = [];
-    const { io, deps: d } = deps(["", "", "", "y", "srv-bad"], {
-      resolveControlHost: async () => { throw new Error("unreachable"); },
-      listServers: async () => [{ uuid: "srvX", name: "x" }],
-      writeConfig: (o) => { written.push(o); return "/cfg"; },
+    const { io, deps: d } = deps(['', '', '', 'y', 'srv-bad'], {
+      resolveControlHost: async () => {
+        throw new Error('unreachable');
+      },
+      listServers: async () => [{ uuid: 'srvX', name: 'x' }],
+      writeConfig: (o) => {
+        written.push(o);
+        return '/cfg';
+      },
     });
     const code = await runInitFlow(d);
     expect(code).toBe(0); // wizard completes API-only, does not crash
-    expect(JSON.stringify(written[0])).not.toContain("\"ssh\"");
-    expect(io.printed.join("\n")).toMatch(/skipping host-ops/i);
+    expect(JSON.stringify(written[0])).not.toContain('"ssh"');
+    expect(io.printed.join('\n')).toMatch(/skipping host-ops/i);
   });
 });
 
-import { runInit } from "./init.js";
+import { runInit } from './init.js';
 
-describe("runInit (real-deps wiring)", () => {
-  it("is exported as a function (argv, env, io?)", () => {
-    expect(typeof runInit).toBe("function");
+describe('runInit (real-deps wiring)', () => {
+  it('is exported as a function (argv, env, io?)', () => {
+    expect(typeof runInit).toBe('function');
     expect(runInit.length).toBeGreaterThanOrEqual(2);
   });
 });
 
-describe("runInitFlow merge", () => {
-  it("adds a second instance, preserves the first verbatim, keeps default when declined", async () => {
-    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://prod", token: "${PROD}" } } };
+describe('runInitFlow merge', () => {
+  it('adds a second instance, preserves the first verbatim, keeps default when declined', async () => {
+    const existing = {
+      defaultInstance: 'prod',
+      instances: { prod: { baseUrl: 'https://prod', token: '${PROD}' } },
+    };
     const written: unknown[] = [];
     // answers: baseUrl, token, instanceName="staging", host-ops? n, make-default? n
-    const { deps: d } = deps(["https://stg", "2|s", "staging", "n", "n"], {
+    const { deps: d } = deps(['https://stg', '2|s', 'staging', 'n', 'n'], {
       readConfig: () => existing,
-      writeConfig: (o) => { written.push(o); return "/cfg"; },
+      writeConfig: (o) => {
+        written.push(o);
+        return '/cfg';
+      },
     });
     const code = await runInitFlow(d);
     expect(code).toBe(0);
-    const out = written[0] as { defaultInstance: string; instances: Record<string, { token?: string }> };
-    expect(out.defaultInstance).toBe("prod");                  // unchanged
-    expect(out.instances.prod.token).toBe("${PROD}");          // preserved verbatim
-    expect(Object.keys(out.instances).sort()).toEqual(["prod", "staging"]);
+    const out = written[0] as {
+      defaultInstance: string;
+      instances: Record<string, { token?: string }>;
+    };
+    expect(out.defaultInstance).toBe('prod'); // unchanged
+    expect(out.instances.prod.token).toBe('${PROD}'); // preserved verbatim
+    expect(Object.keys(out.instances).sort()).toEqual(['prod', 'staging']);
   });
 
-  it("switches the default when the user accepts the make-default prompt", async () => {
-    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://prod", token: "${PROD}" } } };
+  it('switches the default when the user accepts the make-default prompt', async () => {
+    const existing = {
+      defaultInstance: 'prod',
+      instances: { prod: { baseUrl: 'https://prod', token: '${PROD}' } },
+    };
     const written: unknown[] = [];
     // answers: baseUrl, token, instanceName="staging", host-ops? n, make-default? y
-    const { deps: d } = deps(["https://stg", "2|s", "staging", "n", "y"], {
+    const { deps: d } = deps(['https://stg', '2|s', 'staging', 'n', 'y'], {
       readConfig: () => existing,
-      writeConfig: (o) => { written.push(o); return "/cfg"; },
+      writeConfig: (o) => {
+        written.push(o);
+        return '/cfg';
+      },
     });
     await runInitFlow(d);
-    expect((written[0] as { defaultInstance: string }).defaultInstance).toBe("staging");
+    expect((written[0] as { defaultInstance: string }).defaultInstance).toBe('staging');
   });
 
-  it("re-prompts for a name when the chosen name exists and reconfigure is declined", async () => {
-    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://prod", token: "${PROD}" } } };
+  it('re-prompts for a name when the chosen name exists and reconfigure is declined', async () => {
+    const existing = {
+      defaultInstance: 'prod',
+      instances: { prod: { baseUrl: 'https://prod', token: '${PROD}' } },
+    };
     const written: unknown[] = [];
     // answers: baseUrl, token, name="prod", reconfigure? n, name="prod2", host-ops? n, make-default? n
-    const { deps: d } = deps(["https://x", "9|s", "prod", "n", "prod2", "n", "n"], {
+    const { deps: d } = deps(['https://x', '9|s', 'prod', 'n', 'prod2', 'n', 'n'], {
       readConfig: () => existing,
-      writeConfig: (o) => { written.push(o); return "/cfg"; },
+      writeConfig: (o) => {
+        written.push(o);
+        return '/cfg';
+      },
     });
     const code = await runInitFlow(d);
     expect(code).toBe(0);
-    expect(Object.keys((written[0] as { instances: Record<string, unknown> }).instances).sort()).toEqual(["prod", "prod2"]);
+    expect(
+      Object.keys((written[0] as { instances: Record<string, unknown> }).instances).sort(),
+    ).toEqual(['prod', 'prod2']);
   });
 
-  it("overwrites only the named instance when reconfigure is confirmed", async () => {
-    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://old", token: "${PROD}" }, stg: { baseUrl: "https://stg", token: "${STG}" } } };
+  it('overwrites only the named instance when reconfigure is confirmed', async () => {
+    const existing = {
+      defaultInstance: 'prod',
+      instances: {
+        prod: { baseUrl: 'https://old', token: '${PROD}' },
+        stg: { baseUrl: 'https://stg', token: '${STG}' },
+      },
+    };
     const written: unknown[] = [];
     // answers: baseUrl, token, name="prod", reconfigure? y, host-ops? n
-    const { deps: d } = deps(["https://new", "1|new", "prod", "y", "n"], {
+    const { deps: d } = deps(['https://new', '1|new', 'prod', 'y', 'n'], {
       readConfig: () => existing,
-      writeConfig: (o) => { written.push(o); return "/cfg"; },
+      writeConfig: (o) => {
+        written.push(o);
+        return '/cfg';
+      },
     });
     await runInitFlow(d);
     const out = written[0] as { instances: Record<string, { baseUrl: string; token: string }> };
-    expect(out.instances.prod.baseUrl).toBe("https://new");
-    expect(out.instances.prod.token).toBe("1|new");   // inline by default
-    expect(out.instances.stg.token).toBe("${STG}");   // untouched
+    expect(out.instances.prod.baseUrl).toBe('https://new');
+    expect(out.instances.prod.token).toBe('1|new'); // inline by default
+    expect(out.instances.stg.token).toBe('${STG}'); // untouched
   });
 
-  it("keeps the default unchanged when reconfiguring the current default (no make-default prompt)", async () => {
-    const existing = { defaultInstance: "prod", instances: { prod: { baseUrl: "https://old", token: "${PROD}" }, stg: { baseUrl: "https://stg", token: "${STG}" } } };
+  it('keeps the default unchanged when reconfiguring the current default (no make-default prompt)', async () => {
+    const existing = {
+      defaultInstance: 'prod',
+      instances: {
+        prod: { baseUrl: 'https://old', token: '${PROD}' },
+        stg: { baseUrl: 'https://stg', token: '${STG}' },
+      },
+    };
     const written: unknown[] = [];
     // answers: baseUrl, token, name="prod", reconfigure? y, host-ops? n
     // (no make-default question is asked because the reconfigured instance IS already the default)
-    const { deps: d } = deps(["https://new", "1|new", "prod", "y", "n"], {
+    const { deps: d } = deps(['https://new', '1|new', 'prod', 'y', 'n'], {
       readConfig: () => existing,
-      writeConfig: (o) => { written.push(o); return "/cfg"; },
+      writeConfig: (o) => {
+        written.push(o);
+        return '/cfg';
+      },
     });
     const code = await runInitFlow(d);
     expect(code).toBe(0);
-    const out = written[0] as { defaultInstance: string; instances: Record<string, { baseUrl: string }> };
-    expect(out.defaultInstance).toBe("prod");
-    expect(out.instances.prod.baseUrl).toBe("https://new");
-    expect(out.instances.stg.baseUrl).toBe("https://stg");
+    const out = written[0] as {
+      defaultInstance: string;
+      instances: Record<string, { baseUrl: string }>;
+    };
+    expect(out.defaultInstance).toBe('prod');
+    expect(out.instances.prod.baseUrl).toBe('https://new');
+    expect(out.instances.stg.baseUrl).toBe('https://stg');
   });
 });

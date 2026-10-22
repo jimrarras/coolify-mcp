@@ -1,6 +1,6 @@
-import type { CoolifyApiClient } from "./client.js";
+import type { CoolifyApiClient } from './client.js';
 
-export type HetznerResource = "locations" | "server-types" | "images" | "ssh-keys";
+export type HetznerResource = 'locations' | 'server-types' | 'images' | 'ssh-keys';
 
 export class HetznerApi {
   constructor(private readonly client: CoolifyApiClient) {}

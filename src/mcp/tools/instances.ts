@@ -1,6 +1,6 @@
 // src/mcp/tools/instances.ts
-import { ok } from "../../core/errors.js";
-import type { ToolDef, ToolHandler } from "./types.js";
+import { ok } from '../../core/errors.js';
+import type { ToolDef, ToolHandler } from './types.js';
 
 const listInstances: ToolHandler = async (_args, ctx) => {
   return ok({ default: ctx.defaultInstance, instances: ctx.instances ?? [] });
@@ -8,13 +8,18 @@ const listInstances: ToolHandler = async (_args, ctx) => {
 
 export const TOOLS: ToolDef[] = [
   {
-    name: "list_instances",
-    description: "List the Coolify instances this server is configured to drive (names, base URLs, default, and per-instance host-ops/destructive flags). Never returns tokens or other secrets. Pass an instance name as the 'instance' arg to any other tool to route to it.",
-    tier: "api",
+    name: 'list_instances',
+    description:
+      "List the Coolify instances this server is configured to drive (names, base URLs, default, and per-instance host-ops/destructive flags). Never returns tokens or other secrets. Pass an instance name as the 'instance' arg to any other tool to route to it.",
+    tier: 'api',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        instance: { type: "string", description: "Not used for routing here — the instance list is server-global. Pass an instance name to any OTHER tool to target a specific Coolify instance." },
+        instance: {
+          type: 'string',
+          description:
+            'Not used for routing here — the instance list is server-global. Pass an instance name to any OTHER tool to target a specific Coolify instance.',
+        },
       },
       required: [],
     },

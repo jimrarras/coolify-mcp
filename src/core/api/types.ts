@@ -1,18 +1,18 @@
 // Shared API DTOs consumed by multiple sub-clients and tools.
 
-export type ResourceKind = "applications" | "databases" | "services";
+export type ResourceKind = 'applications' | 'databases' | 'services';
 
 export type DbEngine =
-  | "postgresql"
-  | "mysql"
-  | "mariadb"
-  | "mongodb"
-  | "redis"
-  | "keydb"
-  | "dragonfly"
-  | "clickhouse";
+  | 'postgresql'
+  | 'mysql'
+  | 'mariadb'
+  | 'mongodb'
+  | 'redis'
+  | 'keydb'
+  | 'dragonfly'
+  | 'clickhouse';
 
-export type HetznerResource = "locations" | "server-types" | "images" | "ssh-keys";
+export type HetznerResource = 'locations' | 'server-types' | 'images' | 'ssh-keys';
 
 export interface Deployment {
   id: number;

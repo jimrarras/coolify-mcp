@@ -1,15 +1,15 @@
-import { CoolifyError } from "../errors.js";
-import { withRetry, isTransientCoolifyError } from "../retry.js";
-import type { ApiConfig } from "../config.js";
-import { ApplicationsApi } from "./applications.js";
-import { DatabasesApi } from "./databases.js";
-import { ServicesApi } from "./services.js";
-import { DeploymentsApi } from "./deployments.js";
-import { ServersApi } from "./servers.js";
-import { ProjectsApi } from "./projects.js";
-import { SecurityApi } from "./security.js";
-import { HetznerApi } from "./hetzner.js";
-import { TeamsApi } from "./teams.js";
+import { CoolifyError } from '../errors.js';
+import { withRetry, isTransientCoolifyError } from '../retry.js';
+import type { ApiConfig } from '../config.js';
+import { ApplicationsApi } from './applications.js';
+import { DatabasesApi } from './databases.js';
+import { ServicesApi } from './services.js';
+import { DeploymentsApi } from './deployments.js';
+import { ServersApi } from './servers.js';
+import { ProjectsApi } from './projects.js';
+import { SecurityApi } from './security.js';
+import { HetznerApi } from './hetzner.js';
+import { TeamsApi } from './teams.js';
 
 // Sub-clients are statically imported (each imports CoolifyApiClient *type-only*,
 // so there is no runtime import cycle) and lazily instantiated on first getter
@@ -17,7 +17,7 @@ import { TeamsApi } from "./teams.js";
 // the previous createRequire("./x.js") shim, which only resolved under tsx/dist.
 
 export interface RequestOpts {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   query?: Record<string, string | number | boolean | undefined>;
   body?: unknown;
   // Override idempotency for retry purposes. Defaults to (method === "GET").
@@ -36,7 +36,11 @@ export interface RetryOverrides {
   sleep?: (ms: number) => Promise<void>;
 }
 
-function buildUrl(base: string, path: string, query?: Record<string, string | number | boolean | undefined>): string {
+function buildUrl(
+  base: string,
+  path: string,
+  query?: Record<string, string | number | boolean | undefined>,
+): string {
   const url = new URL(`${base}/api/v1${path}`);
   if (query) {
     for (const [k, v] of Object.entries(query)) {
@@ -48,27 +52,39 @@ function buildUrl(base: string, path: string, query?: Record<string, string | nu
 
 function mapStatusToError(status: number, body: unknown, retryAfter?: number): CoolifyError {
   if (status === 401 || status === 403) {
-    return new CoolifyError("auth", `HTTP ${status}: Unauthorized/Forbidden`, { status, raw_response: body });
+    return new CoolifyError('auth', `HTTP ${status}: Unauthorized/Forbidden`, {
+      status,
+      raw_response: body,
+    });
   }
   if (status === 404) {
-    return new CoolifyError("not_found", `HTTP 404: Resource not found`, { status, raw_response: body });
+    return new CoolifyError('not_found', `HTTP 404: Resource not found`, {
+      status,
+      raw_response: body,
+    });
   }
   if (status === 400 || status === 422) {
-    return new CoolifyError("invalid_input", `HTTP ${status}: Invalid input`, { status, raw_response: body });
+    return new CoolifyError('invalid_input', `HTTP ${status}: Invalid input`, {
+      status,
+      raw_response: body,
+    });
   }
   if (status === 429 || (status >= 500 && status <= 599)) {
-    return new CoolifyError("transient_exhausted", `HTTP ${status}: Transient error`, {
+    return new CoolifyError('transient_exhausted', `HTTP ${status}: Transient error`, {
       status,
       raw_response: body,
       retryAfter,
     });
   }
-  return new CoolifyError("unknown", `HTTP ${status}: Unexpected error`, { status, raw_response: body });
+  return new CoolifyError('unknown', `HTTP ${status}: Unexpected error`, {
+    status,
+    raw_response: body,
+  });
 }
 
 async function parseBody(res: Response): Promise<unknown> {
-  const ct = res.headers.get("content-type") ?? "";
-  if (ct.includes("application/json")) {
+  const ct = res.headers.get('content-type') ?? '';
+  if (ct.includes('application/json')) {
     try {
       return await res.json();
     } catch {
@@ -100,7 +116,7 @@ export class CoolifyApiClient {
   }
 
   async request<T>(path: string, opts: RequestOpts = {}): Promise<T> {
-    const { method = "GET", query, body } = opts;
+    const { method = 'GET', query, body } = opts;
     const url = buildUrl(this.cfg.baseUrl, path, query);
 
     const headers: Record<string, string> = {
@@ -108,7 +124,7 @@ export class CoolifyApiClient {
       Authorization: `Bearer ${this.cfg.token}`,
     };
     if (body !== undefined) {
-      headers["Content-Type"] = "application/json";
+      headers['Content-Type'] = 'application/json';
     }
 
     const doFetch = async (): Promise<T> => {
@@ -122,7 +138,7 @@ export class CoolifyApiClient {
 
       if (!res.ok) {
         let retryAfter: number | undefined;
-        const raHeader = res.headers.get("Retry-After");
+        const raHeader = res.headers.get('Retry-After');
         if (raHeader) {
           const parsed2 = parseInt(raHeader, 10);
           if (!isNaN(parsed2)) retryAfter = parsed2;
@@ -136,13 +152,13 @@ export class CoolifyApiClient {
       // 200 from a DELETE) is a legitimate success and is passed through. Callers
       // that legitimately accept non-JSON text (e.g. /version) opt out entirely.
       if (!opts.allowNonJsonBody) {
-        const ct = res.headers.get("content-type") ?? "";
-        const isEmptyBody = parsed === null || parsed === "";
-        if (!isEmptyBody && !ct.includes("application/json")) {
+        const ct = res.headers.get('content-type') ?? '';
+        const isEmptyBody = parsed === null || parsed === '';
+        if (!isEmptyBody && !ct.includes('application/json')) {
           throw new CoolifyError(
-            "unknown",
-            `Expected a JSON response body from ${path} but received ${ct || "a non-JSON body"} (HTTP ${res.status}).`,
-            { status: res.status, raw_response: typeof parsed === "string" ? parsed : undefined },
+            'unknown',
+            `Expected a JSON response body from ${path} but received ${ct || 'a non-JSON body'} (HTTP ${res.status}).`,
+            { status: res.status, raw_response: typeof parsed === 'string' ? parsed : undefined },
           );
         }
       }
@@ -155,7 +171,7 @@ export class CoolifyApiClient {
     // server-side before a gateway timed out, so a retry would duplicate the side
     // effect. Defaults to GET-is-idempotent; callers override via opts.idempotent
     // for any side-effecting GET.
-    const isIdempotent = opts.idempotent ?? (method === "GET");
+    const isIdempotent = opts.idempotent ?? method === 'GET';
     return withRetry(doFetch, {
       maxAttempts: this.retryOpts.maxAttempts ?? 4,
       baseDelayMs: this.retryOpts.baseDelayMs ?? 1000,
@@ -177,15 +193,19 @@ export class CoolifyApiClient {
 
   async version(): Promise<string> {
     // /version may return a plain-text body on some Coolify builds; accept it.
-    const result = await this.request<unknown>("/version", { allowNonJsonBody: true });
-    if (result !== null && typeof result === "object" && "version" in (result as Record<string, unknown>)) {
-      return String((result as Record<string, unknown>)["version"]);
+    const result = await this.request<unknown>('/version', { allowNonJsonBody: true });
+    if (
+      result !== null &&
+      typeof result === 'object' &&
+      'version' in (result as Record<string, unknown>)
+    ) {
+      return String((result as Record<string, unknown>)['version']);
     }
     return String(result);
   }
 
   async resources(): Promise<unknown[]> {
-    const result = await this.request<unknown>("/resources");
+    const result = await this.request<unknown>('/resources');
     if (Array.isArray(result)) return result;
     return [];
   }

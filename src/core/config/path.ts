@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join } from 'node:path';
 
 /**
  * Resolves the active config-file path that `init`/`instances` read and write.
@@ -14,11 +14,11 @@ export function resolveConfigPath(
   env: Record<string, string | undefined>,
   home: string,
 ): string {
-  const i = argv.indexOf("--config");
+  const i = argv.indexOf('--config');
   if (i !== -1) {
     const next = argv[i + 1];
-    if (next !== undefined && !next.startsWith("--")) return next;
+    if (next !== undefined && !next.startsWith('--')) return next;
   }
   if (env.COOLIFY_CONFIG) return env.COOLIFY_CONFIG;
-  return join(home, ".coolify-mcp", "config.json");
+  return join(home, '.coolify-mcp', 'config.json');
 }

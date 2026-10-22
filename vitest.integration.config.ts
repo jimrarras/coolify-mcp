@@ -1,9 +1,9 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig } from 'vitest/config';
 
 try {
-  process.loadEnvFile(".env");
+  process.loadEnvFile('.env');
 } catch (err) {
-  if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
 }
 
 // Opt-in integration suite. Runs only the live-staging integration file and
@@ -13,8 +13,8 @@ try {
 export default defineConfig({
   test: {
     globals: false,
-    environment: "node",
-    include: ["src/__tests__/integration.test.ts"],
+    environment: 'node',
+    include: ['src/__tests__/integration.test.ts'],
     passWithNoTests: true,
   },
 });

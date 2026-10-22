@@ -1,8 +1,8 @@
-import { CoolifyError } from "./errors.js";
+import { CoolifyError } from './errors.js';
 
 export interface RetryOptions {
-  maxAttempts?: number;       // default 4
-  baseDelayMs?: number;       // default 1000
+  maxAttempts?: number; // default 4
+  baseDelayMs?: number; // default 1000
   isRetryable: (e: unknown) => boolean;
   sleep?: (ms: number) => Promise<void>;
 }

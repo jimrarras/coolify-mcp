@@ -1,28 +1,30 @@
 // src/mcp/tools/logs.stream.test.ts
-import { describe, it, expect, vi } from "vitest";
-import { TOOLS } from "./logs.js";
-import type { ToolContext } from "./types.js";
-import type { HostOps } from "../../core/ssh/host-ops.js";
-import type { ServerResolver } from "../../core/ssh/resolver.js";
-import type { CoolifyApiClient } from "../../core/api/client.js";
-import type { InstanceConfig } from "../../core/config.js";
+import { describe, it, expect, vi } from 'vitest';
+import { TOOLS } from './logs.js';
+import type { ToolContext } from './types.js';
+import type { HostOps } from '../../core/ssh/host-ops.js';
+import type { ServerResolver } from '../../core/ssh/resolver.js';
+import type { CoolifyApiClient } from '../../core/api/client.js';
+import type { InstanceConfig } from '../../core/config.js';
 
 function makeHostOps(overrides: Partial<HostOps> = {}): HostOps {
   return {
-    dockerStream: vi.fn<(...args: any[]) => any>(async (
-      _target: unknown,
-      _dockerArgs: string,
-      onLine: (l: string) => void,
-      _signal: AbortSignal,
-    ) => {
-      onLine("2024-01-01T00:00:00Z line-one");
-      onLine("2024-01-01T00:00:01Z line-two");
-      return { code: 0 };
-    }),
-    dockerExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "", stderr: "" })),
-    rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: "", stderr: "" })),
-    psqlReadOnly: vi.fn<(...args: any[]) => any>(async () => ""),
-    readHostFile: vi.fn<(...args: any[]) => any>(async () => ""),
+    dockerStream: vi.fn<(...args: any[]) => any>(
+      async (
+        _target: unknown,
+        _dockerArgs: string,
+        onLine: (l: string) => void,
+        _signal: AbortSignal,
+      ) => {
+        onLine('2024-01-01T00:00:00Z line-one');
+        onLine('2024-01-01T00:00:01Z line-two');
+        return { code: 0 };
+      },
+    ),
+    dockerExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: '', stderr: '' })),
+    rawExec: vi.fn<(...args: any[]) => any>(async () => ({ code: 0, stdout: '', stderr: '' })),
+    psqlReadOnly: vi.fn<(...args: any[]) => any>(async () => ''),
+    readHostFile: vi.fn<(...args: any[]) => any>(async () => ''),
     ...overrides,
   } as unknown as HostOps;
 }
@@ -30,11 +32,11 @@ function makeHostOps(overrides: Partial<HostOps> = {}): HostOps {
 function makeResolver(overrides: Partial<ServerResolver> = {}): ServerResolver {
   return {
     resolveByResource: vi.fn<(...args: any[]) => any>(async () => ({
-      serverUuid: "serverabc",
+      serverUuid: 'serverabc',
       isCoolifyHost: true,
     })),
     resolveByServer: vi.fn<(...args: any[]) => any>(async () => ({
-      serverUuid: "serverabc",
+      serverUuid: 'serverabc',
       isCoolifyHost: true,
     })),
     ...overrides,
@@ -53,16 +55,16 @@ function makeCtx(opts: {
   return {
     api: {} as unknown as CoolifyApiClient,
     config: {
-      name: "default",
-      baseUrl: "http://coolify.test",
-      token: "1|abc",
+      name: 'default',
+      baseUrl: 'http://coolify.test',
+      token: '1|abc',
       extraHeaders: {},
       enableHostOps: opts.enableHostOps ?? true,
       allowDestructive: opts.allowDestructive ?? false,
     } as InstanceConfig,
     hostOps: async () => hostOpsImpl,
     resolver: resolverImpl,
-    notifier: opts.notifier as ToolContext["notifier"],
+    notifier: opts.notifier as ToolContext['notifier'],
   };
 }
 
@@ -72,231 +74,228 @@ function getTool(name: string) {
   return t;
 }
 
-describe("stream_logs", () => {
-  it("is present in TOOLS with tier=host", () => {
-    const tool = getTool("stream_logs");
-    expect(tool.tier).toBe("host");
+describe('stream_logs', () => {
+  it('is present in TOOLS with tier=host', () => {
+    const tool = getTool('stream_logs');
+    expect(tool.tier).toBe('host');
   });
 
-  it("returns host_ops_disabled when enableHostOps=false", async () => {
-    const tool = getTool("stream_logs");
+  it('returns host_ops_disabled when enableHostOps=false', async () => {
+    const tool = getTool('stream_logs');
     const ctx = makeCtx({ enableHostOps: false });
-    const result = await tool.handler(
-      { kind: "applications", resource_uuid: "app1abc" },
-      ctx,
-    );
-    expect(result.status).toBe("error");
-    if (result.status === "error") {
-      expect(result.error.kind).toBe("host_ops_disabled");
+    const result = await tool.handler({ kind: 'applications', resource_uuid: 'app1abc' }, ctx);
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.kind).toBe('host_ops_disabled');
     }
   });
 
-  it("returns invalid_input when resource_uuid is missing", async () => {
-    const tool = getTool("stream_logs");
+  it('returns invalid_input when resource_uuid is missing', async () => {
+    const tool = getTool('stream_logs');
     const ctx = makeCtx({ enableHostOps: true });
-    const result = await tool.handler({ kind: "applications" }, ctx);
-    expect(result.status).toBe("error");
-    if (result.status === "error") {
-      expect(result.error.kind).toBe("invalid_input");
+    const result = await tool.handler({ kind: 'applications' }, ctx);
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.kind).toBe('invalid_input');
     }
   });
 
-  it("returns invalid_input when kind is missing", async () => {
-    const tool = getTool("stream_logs");
+  it('returns invalid_input when kind is missing', async () => {
+    const tool = getTool('stream_logs');
     const ctx = makeCtx({ enableHostOps: true });
-    const result = await tool.handler({ resource_uuid: "app1abc" }, ctx);
-    expect(result.status).toBe("error");
-    if (result.status === "error") {
-      expect(result.error.kind).toBe("invalid_input");
+    const result = await tool.handler({ resource_uuid: 'app1abc' }, ctx);
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.kind).toBe('invalid_input');
     }
   });
 
-  it("streams lines and returns them in result with line count", async () => {
+  it('streams lines and returns them in result with line count', async () => {
     const notifications: unknown[] = [];
     const notifier = {
-      sendNotification: vi.fn<(...args: any[]) => any>(async (n: unknown) => { notifications.push(n); }),
+      sendNotification: vi.fn<(...args: any[]) => any>(async (n: unknown) => {
+        notifications.push(n);
+      }),
     };
     const fakeHostOps = makeHostOps({
-      dockerStream: vi.fn<(...args: any[]) => any>(async (
-        _target: unknown,
-        _dockerArgs: string,
-        onLine: (l: string) => void,
-        _signal: AbortSignal,
-      ) => {
-        for (let i = 0; i < 5; i++) {
-          onLine(`line ${i}`);
-        }
-        return { code: 0 };
-      }),
+      dockerStream: vi.fn<(...args: any[]) => any>(
+        async (
+          _target: unknown,
+          _dockerArgs: string,
+          onLine: (l: string) => void,
+          _signal: AbortSignal,
+        ) => {
+          for (let i = 0; i < 5; i++) {
+            onLine(`line ${i}`);
+          }
+          return { code: 0 };
+        },
+      ),
     });
     const ctx = makeCtx({ enableHostOps: true, hostOpsImpl: fakeHostOps, notifier });
-    const tool = getTool("stream_logs");
+    const tool = getTool('stream_logs');
     const result = await tool.handler(
-      { kind: "applications", resource_uuid: "app1abc", lines: 50, timeout_ms: 5000 },
+      { kind: 'applications', resource_uuid: 'app1abc', lines: 50, timeout_ms: 5000 },
       ctx,
     );
-    expect(result.status).toBe("ok");
-    if (result.status === "ok") {
-      expect(result["lines_received"]).toBe(5);
-      const logLines = result["log_lines"] as string[];
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result['lines_received']).toBe(5);
+      const logLines = result['log_lines'] as string[];
       expect(logLines).toHaveLength(5);
-      expect(logLines[0]).toBe("line 0");
+      expect(logLines[0]).toBe('line 0');
     }
   });
 
-  it("sends progress notifications as lines arrive", async () => {
+  it('sends progress notifications as lines arrive', async () => {
     const sentNotifications: unknown[] = [];
     const notifier = {
-      sendNotification: vi.fn<(...args: any[]) => any>(async (n: unknown) => { sentNotifications.push(n); }),
+      sendNotification: vi.fn<(...args: any[]) => any>(async (n: unknown) => {
+        sentNotifications.push(n);
+      }),
     };
     // Inject custom dockerStream that emits NOTIFY_INTERVAL+1 lines to trigger a notification
     const NOTIFY_INTERVAL = 25;
     const fakeHostOps = makeHostOps({
-      dockerStream: vi.fn<(...args: any[]) => any>(async (
-        _target: unknown,
-        _dockerArgs: string,
-        onLine: (l: string) => void,
-        _signal: AbortSignal,
-      ) => {
-        for (let i = 0; i < NOTIFY_INTERVAL + 1; i++) {
-          onLine(`line ${i}`);
-        }
-        return { code: 0 };
-      }),
+      dockerStream: vi.fn<(...args: any[]) => any>(
+        async (
+          _target: unknown,
+          _dockerArgs: string,
+          onLine: (l: string) => void,
+          _signal: AbortSignal,
+        ) => {
+          for (let i = 0; i < NOTIFY_INTERVAL + 1; i++) {
+            onLine(`line ${i}`);
+          }
+          return { code: 0 };
+        },
+      ),
     });
     const ctx = makeCtx({ enableHostOps: true, hostOpsImpl: fakeHostOps, notifier });
-    const tool = getTool("stream_logs");
+    const tool = getTool('stream_logs');
     await tool.handler(
-      { kind: "applications", resource_uuid: "app1abc", lines: 200, timeout_ms: 5000 },
+      { kind: 'applications', resource_uuid: 'app1abc', lines: 200, timeout_ms: 5000 },
       ctx,
     );
     // At least one progress notification should have been sent
     expect(sentNotifications.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("enforces MAX_LINES hard cap (1000)", async () => {
+  it('enforces MAX_LINES hard cap (1000)', async () => {
     const fakeHostOps = makeHostOps({
-      dockerStream: vi.fn<(...args: any[]) => any>(async (
-        _target: unknown,
-        _dockerArgs: string,
-        onLine: (l: string) => void,
-        _signal: AbortSignal,
-      ) => {
-        // Emit 2000 lines
-        for (let i = 0; i < 2000; i++) {
-          onLine(`line ${i}`);
-        }
-        return { code: 0 };
-      }),
+      dockerStream: vi.fn<(...args: any[]) => any>(
+        async (
+          _target: unknown,
+          _dockerArgs: string,
+          onLine: (l: string) => void,
+          _signal: AbortSignal,
+        ) => {
+          // Emit 2000 lines
+          for (let i = 0; i < 2000; i++) {
+            onLine(`line ${i}`);
+          }
+          return { code: 0 };
+        },
+      ),
     });
     const ctx = makeCtx({ enableHostOps: true, hostOpsImpl: fakeHostOps });
-    const tool = getTool("stream_logs");
+    const tool = getTool('stream_logs');
     const result = await tool.handler(
-      { kind: "applications", resource_uuid: "app1abc", lines: 2000 },
+      { kind: 'applications', resource_uuid: 'app1abc', lines: 2000 },
       ctx,
     );
-    expect(result.status).toBe("ok");
-    if (result.status === "ok") {
-      const logLines = result["log_lines"] as string[];
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      const logLines = result['log_lines'] as string[];
       expect(logLines.length).toBeLessThanOrEqual(1000);
-      expect(result["truncated"]).toBe(true);
+      expect(result['truncated']).toBe(true);
     }
   });
 
-  it("uses resolveByResource to find the target server", async () => {
+  it('uses resolveByResource to find the target server', async () => {
     const resolverImpl = makeResolver({
       resolveByResource: vi.fn<(...args: any[]) => any>(async () => ({
-        serverUuid: "custom-server",
+        serverUuid: 'custom-server',
         isCoolifyHost: false,
-        dockerHost: "ssh://root@10.0.0.1",
+        dockerHost: 'ssh://root@10.0.0.1',
       })),
     });
     const fakeHostOps = makeHostOps();
     const ctx = makeCtx({ enableHostOps: true, hostOpsImpl: fakeHostOps, resolverImpl });
-    const tool = getTool("stream_logs");
-    await tool.handler(
-      { kind: "applications", resource_uuid: "app1abc" },
-      ctx,
-    );
+    const tool = getTool('stream_logs');
+    await tool.handler({ kind: 'applications', resource_uuid: 'app1abc' }, ctx);
     // oxlint-disable-next-line typescript/unbound-method -- asserting on a vi.fn mock, which needs no receiver
-    expect(resolverImpl.resolveByResource).toHaveBeenCalledWith("applications", "app1abc");
+    expect(resolverImpl.resolveByResource).toHaveBeenCalledWith('applications', 'app1abc');
   });
 
-  it("returns partial with abort reason when AbortSignal fires before stream ends", async () => {
+  it('returns partial with abort reason when AbortSignal fires before stream ends', async () => {
     const fakeHostOps = makeHostOps({
-      dockerStream: vi.fn<(...args: any[]) => any>(async (
-        _target: unknown,
-        _dockerArgs: string,
-        onLine: (l: string) => void,
-        signal: AbortSignal,
-      ) => {
-        onLine("line 0");
-        // Simulate abort during streaming: just exit if aborted
-        if (signal.aborted) return { code: null };
-        return { code: 0 };
-      }),
+      dockerStream: vi.fn<(...args: any[]) => any>(
+        async (
+          _target: unknown,
+          _dockerArgs: string,
+          onLine: (l: string) => void,
+          signal: AbortSignal,
+        ) => {
+          onLine('line 0');
+          // Simulate abort during streaming: just exit if aborted
+          if (signal.aborted) return { code: null };
+          return { code: 0 };
+        },
+      ),
     });
     const ctx = makeCtx({ enableHostOps: true, hostOpsImpl: fakeHostOps });
-    const tool = getTool("stream_logs");
+    const tool = getTool('stream_logs');
     // timeout_ms=0 forces immediate timeout
     const result = await tool.handler(
-      { kind: "applications", resource_uuid: "app1abc", timeout_ms: 1 },
+      { kind: 'applications', resource_uuid: 'app1abc', timeout_ms: 1 },
       ctx,
     );
     // Either ok (1 line collected before abort) or partial
-    expect(["ok", "partial"]).toContain(result.status);
+    expect(['ok', 'partial']).toContain(result.status);
   });
 
   // ── R3 regression: shell-injection via resource_uuid ────────────────────────
-  it("R3: rejects resource_uuid containing shell metacharacters (injection payload)", async () => {
-    const tool = getTool("stream_logs");
+  it('R3: rejects resource_uuid containing shell metacharacters (injection payload)', async () => {
+    const tool = getTool('stream_logs');
     const ctx = makeCtx({ enableHostOps: true });
     // Attacker payload: stacked command via semicolon
     const result = await tool.handler(
-      { kind: "applications", resource_uuid: "app1abc; cat /etc/shadow" },
+      { kind: 'applications', resource_uuid: 'app1abc; cat /etc/shadow' },
       ctx,
     );
-    expect(result.status).toBe("error");
-    if (result.status === "error") {
-      expect(result.error.kind).toBe("invalid_input");
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.kind).toBe('invalid_input');
     }
   });
 
-  it("R3: rejects resource_uuid containing pipe metacharacter", async () => {
-    const tool = getTool("stream_logs");
+  it('R3: rejects resource_uuid containing pipe metacharacter', async () => {
+    const tool = getTool('stream_logs');
     const ctx = makeCtx({ enableHostOps: true });
-    const result = await tool.handler(
-      { kind: "applications", resource_uuid: "app1abc|id" },
-      ctx,
-    );
-    expect(result.status).toBe("error");
-    if (result.status === "error") {
-      expect(result.error.kind).toBe("invalid_input");
+    const result = await tool.handler({ kind: 'applications', resource_uuid: 'app1abc|id' }, ctx);
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.kind).toBe('invalid_input');
     }
   });
 
-  it("R3: rejects resource_uuid with hyphen (non-alphanumeric, not a Coolify UUID)", async () => {
-    const tool = getTool("stream_logs");
+  it('R3: rejects resource_uuid with hyphen (non-alphanumeric, not a Coolify UUID)', async () => {
+    const tool = getTool('stream_logs');
     const ctx = makeCtx({ enableHostOps: true });
-    const result = await tool.handler(
-      { kind: "applications", resource_uuid: "app-1-abc" },
-      ctx,
-    );
-    expect(result.status).toBe("error");
-    if (result.status === "error") {
-      expect(result.error.kind).toBe("invalid_input");
+    const result = await tool.handler({ kind: 'applications', resource_uuid: 'app-1-abc' }, ctx);
+    expect(result.status).toBe('error');
+    if (result.status === 'error') {
+      expect(result.error.kind).toBe('invalid_input');
     }
   });
 
-  it("R3: accepts a valid alphanumeric resource_uuid", async () => {
+  it('R3: accepts a valid alphanumeric resource_uuid', async () => {
     const fakeHostOps = makeHostOps();
     const ctx = makeCtx({ enableHostOps: true, hostOpsImpl: fakeHostOps });
-    const tool = getTool("stream_logs");
-    const result = await tool.handler(
-      { kind: "applications", resource_uuid: "abc123XYZ" },
-      ctx,
-    );
+    const tool = getTool('stream_logs');
+    const result = await tool.handler({ kind: 'applications', resource_uuid: 'abc123XYZ' }, ctx);
     // Should reach execution (not blocked at validation)
-    expect(result.status).not.toBe("error");
+    expect(result.status).not.toBe('error');
   });
 });

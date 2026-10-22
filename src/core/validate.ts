@@ -1,13 +1,13 @@
 // src/core/validate.ts
-import { CoolifyError } from "./errors.js";
+import { CoolifyError } from './errors.js';
 
 // Coolify UUIDs are NOT RFC-4122; they are purely alphanumeric.
 export const COOLIFY_UUID_RE: RegExp = /^[A-Za-z0-9]+$/;
 
 export function assertCoolifyUuid(value: unknown, field: string): string {
-  if (typeof value !== "string" || !COOLIFY_UUID_RE.test(value)) {
+  if (typeof value !== 'string' || !COOLIFY_UUID_RE.test(value)) {
     throw new CoolifyError(
-      "invalid_input",
+      'invalid_input',
       `Field "${field}" must be a non-empty alphanumeric Coolify UUID; got: ${JSON.stringify(value)}`,
     );
   }
@@ -23,9 +23,9 @@ export function assertCoolifyUuid(value: unknown, field: string): string {
 // usability widening, not a relaxation of a load-bearing guard.
 export const COOLIFY_SERVER_REF_RE: RegExp = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
 export function assertCoolifyServerRef(value: unknown, field: string): string {
-  if (typeof value !== "string" || !COOLIFY_SERVER_REF_RE.test(value) || value.includes("..")) {
+  if (typeof value !== 'string' || !COOLIFY_SERVER_REF_RE.test(value) || value.includes('..')) {
     throw new CoolifyError(
-      "invalid_input",
+      'invalid_input',
       `Field "${field}" must be a Coolify server UUID or name ` +
         `(letters, digits, '.', '-', '_'; no '..' or leading dot/dash); got: ${JSON.stringify(value)}`,
     );
@@ -36,11 +36,11 @@ export function assertCoolifyServerRef(value: unknown, field: string): string {
 // A Coolify API token is "<id>|<secret>": an integer id, a pipe, then a non-empty
 // secret. Shared by the env-fallback path and the config-file path so a malformed
 // token fails fast at load time on both, rather than as a late opaque 401.
-export function assertCoolifyTokenFormat(token: string, label = "token"): void {
-  const pipeIdx = token.indexOf("|");
+export function assertCoolifyTokenFormat(token: string, label = 'token'): void {
+  const pipeIdx = token.indexOf('|');
   if (pipeIdx <= 0 || pipeIdx === token.length - 1 || !/^\d+$/.test(token.slice(0, pipeIdx))) {
     throw new CoolifyError(
-      "invalid_input",
+      'invalid_input',
       `${label} must be "<id>|<secret>" where <id> is an integer`,
     );
   }

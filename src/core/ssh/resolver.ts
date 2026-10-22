@@ -1,8 +1,8 @@
 // src/core/ssh/resolver.ts
-import { asString } from "../str.js";
-import type { CoolifyApiClient } from "../api/client.js";
-import type { ResourceKind } from "../api/deployments.js";
-import { CoolifyError } from "../errors.js";
+import { asString } from '../str.js';
+import type { CoolifyApiClient } from '../api/client.js';
+import type { ResourceKind } from '../api/deployments.js';
+import { CoolifyError } from '../errors.js';
 
 export interface ServerTarget {
   serverUuid: string;
@@ -23,14 +23,14 @@ export interface ControlHost {
  * (e.g. `host.docker.internal` when Coolify talks to the host's Docker socket).
  */
 function isNonRoutableHost(ip: string): boolean {
-  const h = ip.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+  const h = ip.toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
   return (
-    h === "host.docker.internal" ||
-    h === "gateway.docker.internal" ||
-    h === "localhost" ||
-    h === "0.0.0.0" ||
-    h === "::1" ||
-    h.startsWith("127.")
+    h === 'host.docker.internal' ||
+    h === 'gateway.docker.internal' ||
+    h === 'localhost' ||
+    h === '0.0.0.0' ||
+    h === '::1' ||
+    h.startsWith('127.')
   );
 }
 
@@ -56,16 +56,16 @@ export class ServerResolver {
     } else {
       if (!this.baseUrl) {
         throw new CoolifyError(
-          "invalid_input",
-          "control-host resolution requires baseUrl or ssh.hostServer",
+          'invalid_input',
+          'control-host resolution requires baseUrl or ssh.hostServer',
         );
       }
       const wantHost = new URL(this.baseUrl).hostname.toLowerCase();
       const all = await this.api.servers.list();
       record = all.find((s) => {
-        const ip = asString(s["ip"]).toLowerCase();
-        const name = asString(s["name"]).toLowerCase();
-        const fqdn = asString(s["fqdn"] ?? s["domain"]).toLowerCase();
+        const ip = asString(s['ip']).toLowerCase();
+        const name = asString(s['name']).toLowerCase();
+        const fqdn = asString(s['fqdn'] ?? s['domain']).toLowerCase();
         // Exact matches only. A substring (`includes`) match would let a
         // compromised Coolify API hijack control-host selection with a record
         // whose fqdn merely *contains* the real host (e.g. "evil-coolify.example.com"),
@@ -74,18 +74,18 @@ export class ServerResolver {
       });
       if (!record) {
         throw new CoolifyError(
-          "invalid_input",
+          'invalid_input',
           `Could not identify the Coolify control host for ${this.baseUrl} among the API's servers. Set ssh.hostServer to the control server's uuid or name (or ssh.host to its reachable address).`,
         );
       }
     }
-    const serverUuid = asString(record["uuid"]);
+    const serverUuid = asString(record['uuid']);
     this.coolifyHostUuid = serverUuid;
     // Invalidate any cached entry for this uuid so _buildTarget rebuilds it with isCoolifyHost=true.
     this.cache.delete(`server:${serverUuid}`);
-    const rawIp = asString(record["ip"]);
-    const user = asString(record["user"], "root");
-    const port = typeof record["port"] === "number" ? (record["port"] as number) : 22;
+    const rawIp = asString(record['ip']);
+    const user = asString(record['user'], 'root');
+    const port = typeof record['port'] === 'number' ? (record['port'] as number) : 22;
     // If the resolved control host's ip is a non-routable alias (host.docker.internal,
     // loopback, …) an external workstation cannot SSH to it. Substitute the
     // operator-configured baseUrl host: it is provably reachable (the REST API is
@@ -101,13 +101,13 @@ export class ServerResolver {
     const USER_RE = /^[A-Za-z0-9_.-]+$/;
     if (!IP_RE.test(host)) {
       throw new CoolifyError(
-        "invalid_input",
+        'invalid_input',
         `control host has invalid ip/host: ${JSON.stringify(host)}`,
       );
     }
     if (!USER_RE.test(user)) {
       throw new CoolifyError(
-        "invalid_input",
+        'invalid_input',
         `control host has invalid user: ${JSON.stringify(user)}`,
       );
     }
@@ -121,22 +121,19 @@ export class ServerResolver {
     }
 
     let resource: Record<string, unknown>;
-    if (kind === "applications") {
+    if (kind === 'applications') {
       resource = await this.api.applications.get(resourceUuid);
-    } else if (kind === "databases") {
+    } else if (kind === 'databases') {
       resource = await this.api.databases.get(resourceUuid);
-    } else if (kind === "services") {
+    } else if (kind === 'services') {
       resource = await this.api.services.get(resourceUuid);
     } else {
-      throw new CoolifyError("invalid_input", `Unknown resource kind: ${String(kind)}`);
+      throw new CoolifyError('invalid_input', `Unknown resource kind: ${String(kind)}`);
     }
 
-    const serverUuid = resource["server_uuid"];
-    if (typeof serverUuid !== "string" || serverUuid === "") {
-      throw new CoolifyError(
-        "not_found",
-        `Resource ${resourceUuid} has no server_uuid`,
-      );
+    const serverUuid = resource['server_uuid'];
+    if (typeof serverUuid !== 'string' || serverUuid === '') {
+      throw new CoolifyError('not_found', `Resource ${resourceUuid} has no server_uuid`);
     }
 
     const target = await this._resolveServerRecord(serverUuid);
@@ -156,14 +153,14 @@ export class ServerResolver {
     } catch (e) {
       // not_found: try matching by name via list
       const err = e as { kind?: string };
-      if (err.kind === "not_found") {
+      if (err.kind === 'not_found') {
         const all = await this.api.servers.list();
         const match = all.find(
-          (s) => typeof s["name"] === "string" && s["name"] === serverUuidOrName,
+          (s) => typeof s['name'] === 'string' && s['name'] === serverUuidOrName,
         );
         if (!match) {
           throw new CoolifyError(
-            "not_found",
+            'not_found',
             `No server found with UUID or name: ${serverUuidOrName}`,
           );
         }
@@ -173,7 +170,7 @@ export class ServerResolver {
       }
     }
 
-    const uuid = asString(serverRecord!["uuid"]);
+    const uuid = asString(serverRecord!['uuid']);
     const target = this._buildTarget(uuid, serverRecord!);
     this.cache.set(cacheKey, target);
     return target;
@@ -191,22 +188,21 @@ export class ServerResolver {
   }
 
   private _buildTarget(serverUuid: string, record: Record<string, unknown>): ServerTarget {
-    const isCoolifyHost =
-      this.coolifyHostUuid !== undefined && serverUuid === this.coolifyHostUuid;
+    const isCoolifyHost = this.coolifyHostUuid !== undefined && serverUuid === this.coolifyHostUuid;
 
     if (isCoolifyHost) {
       return { serverUuid, isCoolifyHost: true };
     }
 
-    const ip = asString(record["ip"]);
-    const user = asString(record["user"], "root");
+    const ip = asString(record['ip']);
+    const user = asString(record['user'], 'root');
 
     // Validate ip/host: allow only characters safe in a URI authority / SSH host
     // (alphanumerics, dots, hyphens, colons for IPv6, brackets for [::1] notation)
     const IP_RE = /^[A-Za-z0-9.\-:[\]]+$/;
     if (!IP_RE.test(ip)) {
       throw new CoolifyError(
-        "invalid_input",
+        'invalid_input',
         `Server record contains an invalid ip/host value: ${JSON.stringify(ip)}`,
       );
     }
@@ -215,7 +211,7 @@ export class ServerResolver {
     const USER_RE = /^[A-Za-z0-9_.-]+$/;
     if (!USER_RE.test(user)) {
       throw new CoolifyError(
-        "invalid_input",
+        'invalid_input',
         `Server record contains an invalid user value: ${JSON.stringify(user)}`,
       );
     }

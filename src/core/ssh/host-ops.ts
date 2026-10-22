@@ -1,20 +1,20 @@
 // src/core/ssh/host-ops.ts
-import { CoolifyError } from "../errors.js";
-import { SENSITIVE_KEY_RE } from "../redact.js";
-import type { SshClient, SshExecResult } from "./client.js";
-import type { ServerResolver, ServerTarget } from "./resolver.js";
-import { shellQuote } from "./shell.js";
+import { CoolifyError } from '../errors.js';
+import { SENSITIVE_KEY_RE } from '../redact.js';
+import type { SshClient, SshExecResult } from './client.js';
+import type { ServerResolver, ServerTarget } from './resolver.js';
+import { shellQuote } from './shell.js';
 
 export const ALLOWED_HOST_FILE_PREFIXES: string[] = [
-  "/data/coolify/source/.env",
-  "/data/coolify/proxy/",
-  "/data/coolify/",
+  '/data/coolify/source/.env',
+  '/data/coolify/proxy/',
+  '/data/coolify/',
 ];
 
 // Resource bounds for query_coolify_db so a valid-but-expensive read-only query
 // cannot hang or OOM the MCP host process. Layered ON TOP of the read-only role,
 // validator, and BEGIN READ ONLY txn — not a replacement for any of them.
-const PSQL_STATEMENT_TIMEOUT = "30s"; // server-side per-statement cap
+const PSQL_STATEMENT_TIMEOUT = '30s'; // server-side per-statement cap
 const PSQL_MAX_OUTPUT_BYTES = 10 * 1024 * 1024; // cap psql stdout buffered in-process
 const PSQL_EXEC_TIMEOUT_MS = 60_000; // overall SSH exec wall-clock bound
 
@@ -38,7 +38,7 @@ export function validateReadOnlySql(sql: string): void {
   // Rule 1 – must start with SELECT or WITH
   if (!/^(SELECT|WITH)\b/i.test(trimmed)) {
     throw new CoolifyError(
-      "invalid_input",
+      'invalid_input',
       `psqlReadOnly only allows SELECT or WITH queries. Got: ${trimmed.slice(0, 80)}`,
     );
   }
@@ -46,17 +46,17 @@ export function validateReadOnlySql(sql: string): void {
   // Rule 2 – reject comment tokens (-- or /*)
   if (/--|\/\*/.test(sql)) {
     throw new CoolifyError(
-      "invalid_input",
-      "psqlReadOnly rejects SQL containing comment tokens (-- or /*)",
+      'invalid_input',
+      'psqlReadOnly rejects SQL containing comment tokens (-- or /*)',
     );
   }
 
   // Rule 3 – reject multi-statement: strip one optional trailing ';', then
   // any remaining ';' means a stacked statement.
-  const withoutTrailingSemi = trimmed.replace(/;\s*$/, "");
-  if (withoutTrailingSemi.includes(";")) {
+  const withoutTrailingSemi = trimmed.replace(/;\s*$/, '');
+  if (withoutTrailingSemi.includes(';')) {
     throw new CoolifyError(
-      "invalid_input",
+      'invalid_input',
       "psqlReadOnly rejects multi-statement SQL (';' found outside trailing position)",
     );
   }
@@ -67,7 +67,7 @@ export function validateReadOnlySql(sql: string): void {
   const match4a = MUTATING_KEYWORDS_RE.exec(sql);
   if (match4a) {
     throw new CoolifyError(
-      "invalid_input",
+      'invalid_input',
       `psqlReadOnly detected mutating keyword '${match4a[1]}' in query`,
     );
   }
@@ -82,7 +82,7 @@ export function validateReadOnlySql(sql: string): void {
   const match4b = DANGEROUS_FUNCTIONS_RE.exec(sql);
   if (match4b) {
     throw new CoolifyError(
-      "invalid_input",
+      'invalid_input',
       `psqlReadOnly detected dangerous function '${match4b[1]}' in query`,
     );
   }
@@ -90,8 +90,8 @@ export function validateReadOnlySql(sql: string): void {
   // Rule 4c – SET ROLE / SET SESSION AUTHORIZATION (privilege escalation)
   if (/\bSET\s+(ROLE|SESSION\s+AUTHORIZATION)\b/i.test(sql)) {
     throw new CoolifyError(
-      "invalid_input",
-      "psqlReadOnly rejects SET ROLE / SET SESSION AUTHORIZATION",
+      'invalid_input',
+      'psqlReadOnly rejects SET ROLE / SET SESSION AUTHORIZATION',
     );
   }
 }
@@ -121,16 +121,13 @@ export function redactSqlOutput(raw: string): string {
   // Pass A – redact complete PEM blocks (BEGIN ... END).
   const pemRedacted = raw.replace(
     /-----BEGIN[^\n]*-----[\s\S]*?-----END[^\n]*-----/g,
-    "***REDACTED***",
+    '***REDACTED***',
   );
 
   // Pass B – redact partial/truncated PEM (BEGIN marker present but no END).
   // After pass A any complete blocks are gone; what's left with a BEGIN but no END
   // is a truncated block — redact from the BEGIN line to end of string.
-  const pemPartialRedacted = pemRedacted.replace(
-    /-----BEGIN[^\n]*-----[\s\S]*/g,
-    "***REDACTED***",
-  );
+  const pemPartialRedacted = pemRedacted.replace(/-----BEGIN[^\n]*-----[\s\S]*/g, '***REDACTED***');
 
   // Pass C – column-name-based redaction for psql tabular output.
   // psql text output looks like:
@@ -139,17 +136,17 @@ export function redactSqlOutput(raw: string): string {
   //   val1 | val2 | supersecret
   // When using multiple -c flags, psql may emit SET, BEGIN, blank lines,
   // or ROLLBACK before the actual table, so the header is NOT always line[0].
-  const lines = pemPartialRedacted.split("\n");
+  const lines = pemPartialRedacted.split('\n');
 
   // Find the first line that contains '|' — that is the table header.
-  const headerIdx = lines.findIndex((l) => l.includes("|"));
+  const headerIdx = lines.findIndex((l) => l.includes('|'));
   if (headerIdx === -1) {
     // No table output — skip column-based redaction but still run value pass (pass D below)
     return applyValueEntropyPass(pemPartialRedacted);
   }
 
   const headerLine = lines[headerIdx];
-  const headers = headerLine.split("|").map((h) => h.trim());
+  const headers = headerLine.split('|').map((h) => h.trim());
   const sensitiveColIndexes = headers
     .map((h, i) => (SENSITIVE_KEY_RE.test(h) ? i : -1))
     .filter((i) => i >= 0);
@@ -164,16 +161,16 @@ export function redactSqlOutput(raw: string): string {
       // separator lines contain only dashes/pluses/spaces
       if (/^[-+\s]+$/.test(line)) return line;
       // data row
-      if (!line.includes("|")) return line;
-      const cells = line.split("|");
+      if (!line.includes('|')) return line;
+      const cells = line.split('|');
       for (const idx of sensitiveColIndexes) {
         if (idx < cells.length) {
-          cells[idx] = " ***REDACTED*** ";
+          cells[idx] = ' ***REDACTED*** ';
         }
       }
-      return cells.join("|");
+      return cells.join('|');
     });
-    result = redactedLines.join("\n");
+    result = redactedLines.join('\n');
   }
 
   // Pass D – entropy/value-pattern pass: masks secret-looking values regardless
@@ -202,11 +199,11 @@ function applyValueEntropyPass(text: string): string {
     return false;
   };
 
-  const lines = text.split("\n");
+  const lines = text.split('\n');
 
   // Find the first non-empty, non-separator line with | to determine if this is
   // multi-column output. If no | found, treat whole data lines as single values.
-  const headerIdx = lines.findIndex((l) => l.includes("|"));
+  const headerIdx = lines.findIndex((l) => l.includes('|'));
 
   const redactedLines = lines.map((line, lineIdx) => {
     // Skip separator lines (only dashes/pluses/spaces)
@@ -215,33 +212,33 @@ function applyValueEntropyPass(text: string): string {
     if (headerIdx !== -1) {
       // Multi-column output: skip header line itself
       if (lineIdx === headerIdx) return line;
-      if (!line.includes("|")) {
+      if (!line.includes('|')) {
         // Non-table line (e.g. "(N rows)", "ROLLBACK") — just check the whole line
         const trimmed = line.trim();
-        return isSecretValue(trimmed) ? "***REDACTED***" : line;
+        return isSecretValue(trimmed) ? '***REDACTED***' : line;
       }
       // Data row with cells
-      const cells = line.split("|");
+      const cells = line.split('|');
       const newCells = cells.map((cell) => {
         const trimmed = cell.trim();
-        return isSecretValue(trimmed) ? " ***REDACTED*** " : cell;
+        return isSecretValue(trimmed) ? ' ***REDACTED*** ' : cell;
       });
-      return newCells.join("|");
+      return newCells.join('|');
     } else {
       // Single-column output (no | in entire output)
       // The first non-empty, non-separator line is the header; subsequent non-separator lines are values.
       // We identify the header as the first non-empty line, then treat the rest as values.
-      const firstNonEmpty = lines.findIndex((l) => l.trim() !== "" && !/^[-\s]+$/.test(l));
+      const firstNonEmpty = lines.findIndex((l) => l.trim() !== '' && !/^[-\s]+$/.test(l));
       if (lineIdx === firstNonEmpty) return line; // header
       const trimmed = line.trim();
-      if (trimmed === "") return line;
+      if (trimmed === '') return line;
       // Row count lines like "(N rows)" — skip
       if (/^\(\d+ rows?\)$/.test(trimmed)) return line;
-      return isSecretValue(trimmed) ? "***REDACTED***" : line;
+      return isSecretValue(trimmed) ? '***REDACTED***' : line;
     }
   });
 
-  return redactedLines.join("\n");
+  return redactedLines.join('\n');
 }
 
 export class HostOps {
@@ -266,7 +263,7 @@ export class HostOps {
 
   private _dockerPrefix(target: ServerTarget): string {
     if (target.isCoolifyHost) {
-      return "docker";
+      return 'docker';
     }
     return `docker -H ${shellQuote(target.dockerHost!)}`;
   }
@@ -300,9 +297,9 @@ export class HostOps {
     // H2R1: fail-closed — require a dedicated read-only DB role
     if (!this.dbReadonlyUser) {
       throw new CoolifyError(
-        "invalid_input",
-        "query_coolify_db requires COOLIFY_DB_READONLY_USER to be configured; " +
-          "refusing to connect as the default superuser role",
+        'invalid_input',
+        'query_coolify_db requires COOLIFY_DB_READONLY_USER to be configured; ' +
+          'refusing to connect as the default superuser role',
       );
     }
 
@@ -313,11 +310,11 @@ export class HostOps {
     //   3rd -c: ROLLBACK          — rolls back any side-effects (belt-and-suspenders)
     //
     const userQuoted = shellQuote(this.dbReadonlyUser);
-    const beginQuoted = shellQuote("BEGIN READ ONLY");
+    const beginQuoted = shellQuote('BEGIN READ ONLY');
     // Bound the user statement's server-side execution time inside the txn.
     const timeoutQuoted = shellQuote(`SET statement_timeout = '${PSQL_STATEMENT_TIMEOUT}'`);
     const userSqlQuoted = shellQuote(sql);
-    const rollbackQuoted = shellQuote("ROLLBACK");
+    const rollbackQuoted = shellQuote('ROLLBACK');
     const psqlTail = `coolify-db psql -U ${userQuoted} coolify -v ON_ERROR_STOP=1 -c ${beginQuoted} -c ${timeoutQuoted} -c ${userSqlQuoted} -c ${rollbackQuoted}`;
 
     let cmd: string;
@@ -351,9 +348,9 @@ export class HostOps {
 
     if (!isAllowedHostFilePath(normalised)) {
       throw new CoolifyError(
-        "invalid_input",
+        'invalid_input',
         `readHostFile: path "${path}" is outside allowed prefixes. ` +
-          `Allowed: ${ALLOWED_HOST_FILE_PREFIXES.join(", ")}`,
+          `Allowed: ${ALLOWED_HOST_FILE_PREFIXES.join(', ')}`,
       );
     }
 
@@ -379,18 +376,18 @@ export class HostOps {
  *   normalizePosixPath("/data/coolify/./source/.env") => "/data/coolify/source/.env"
  */
 function normalizePosixPath(p: string): string {
-  const parts = p.split("/");
+  const parts = p.split('/');
   const stack: string[] = [];
   for (const part of parts) {
-    if (part === "" || part === ".") {
+    if (part === '' || part === '.') {
       // skip
-    } else if (part === "..") {
+    } else if (part === '..') {
       if (stack.length > 0) stack.pop();
     } else {
       stack.push(part);
     }
   }
-  return "/" + stack.join("/");
+  return '/' + stack.join('/');
 }
 
 /**
@@ -409,7 +406,7 @@ export function isAllowedHostFilePath(
   prefixes: string[] = ALLOWED_HOST_FILE_PREFIXES,
 ): boolean {
   return prefixes.some((prefix) => {
-    if (prefix.endsWith("/")) {
+    if (prefix.endsWith('/')) {
       // directory prefix — any file inside is allowed
       return normalisedPath.startsWith(prefix);
     } else {
@@ -431,7 +428,7 @@ function hasUnescapedQuote(s: string, quote: string): boolean {
   for (let i = 0; i < s.length; i++) {
     if (s[i] !== quote) continue;
     let backslashes = 0;
-    for (let j = i - 1; j >= 0 && s[j] === "\\"; j--) backslashes++;
+    for (let j = i - 1; j >= 0 && s[j] === '\\'; j--) backslashes++;
     if (backslashes % 2 === 0) return true;
   }
   return false;
@@ -453,7 +450,7 @@ function hasUnescapedQuote(s: string, quote: string): boolean {
  *     with ***REDACTED*** until the matching closing quote is found.
  */
 export function redactEnvFileContents(raw: string): string {
-  const lines = raw.split("\n");
+  const lines = raw.split('\n');
   const out: string[] = [];
 
   // Tracks whether we are inside a multi-line sensitive value.
@@ -464,7 +461,7 @@ export function redactEnvFileContents(raw: string): string {
   for (const line of lines) {
     if (inSensitiveContinuation) {
       // We are in a continuation of a sensitive value — mask this line.
-      out.push("***REDACTED***");
+      out.push('***REDACTED***');
 
       // Determine whether the continuation ends here.
       if (openQuote !== null) {
@@ -476,7 +473,7 @@ export function redactEnvFileContents(raw: string): string {
         }
       } else {
         // Backslash continuation: ends when line does NOT end with a backslash.
-        if (!line.trimEnd().endsWith("\\")) {
+        if (!line.trimEnd().endsWith('\\')) {
           inSensitiveContinuation = false;
         }
       }
@@ -485,19 +482,22 @@ export function redactEnvFileContents(raw: string): string {
 
     // Skip blank lines and comments
     const trimmed = line.trimStart();
-    if (trimmed === "" || trimmed.startsWith("#")) {
+    if (trimmed === '' || trimmed.startsWith('#')) {
       out.push(line);
       continue;
     }
 
     // Match KEY=VALUE (KEY may have leading export keyword)
-    const eqIdx = line.indexOf("=");
+    const eqIdx = line.indexOf('=');
     if (eqIdx < 0) {
       out.push(line);
       continue;
     }
 
-    const key = line.slice(0, eqIdx).replace(/^\s*export\s+/, "").trim();
+    const key = line
+      .slice(0, eqIdx)
+      .replace(/^\s*export\s+/, '')
+      .trim();
     if (!SENSITIVE_KEY_RE.test(key)) {
       out.push(line);
       continue;
@@ -524,7 +524,7 @@ export function redactEnvFileContents(raw: string): string {
       openQuote = firstChar;
       continue;
     }
-    if (value.trimEnd().endsWith("\\")) {
+    if (value.trimEnd().endsWith('\\')) {
       // Unquoted backslash continuation.
       inSensitiveContinuation = true;
       openQuote = null;
@@ -532,5 +532,5 @@ export function redactEnvFileContents(raw: string): string {
     }
   }
 
-  return out.join("\n");
+  return out.join('\n');
 }
