@@ -7,7 +7,7 @@ import { scrubInlineSecrets } from "../redact.js";
 describe("re-audit-3: query_coolify_db out-of-band / resource functions blocked", () => {
   for (const fn of ["pg_notify", "pg_sleep", "pg_advisory_lock", "pg_try_advisory_lock", "pg_advisory_unlock"]) {
     it(`rejects ${fn}`, () => {
-      expect(() => validateReadOnlySql(`SELECT ${fn}('x')`)).toThrow();
+      expect(() => validateReadOnlySql(`SELECT ${fn}('x')`)).toThrow(`dangerous function '${fn}'`);
     });
   }
   it("rejects pg_notify exfiltration payload (covert channel)", () => {

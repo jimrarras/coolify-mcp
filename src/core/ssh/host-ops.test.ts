@@ -1,5 +1,5 @@
 // src/core/ssh/host-ops.test.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // ---- ssh2 mock (same pattern as client.test.ts, needed because client.ts imports it) ----
 vi.mock("ssh2", () => ({

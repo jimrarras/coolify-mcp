@@ -1,5 +1,5 @@
 // src/mcp/tools/env.test.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { TOOLS } from "./env.js";
 import type { ToolContext } from "./types.js";
 import type { InstanceConfig } from "../../core/config.js";

@@ -315,7 +315,7 @@ describe("runInstances edit", () => {
 
   it("rotates the token via masked prompt and pre-verifies before writing", async () => {
     let verified: any = null;
-    const verify = async (name: string, inst: any, opts: any) => { verified = { name, token: inst.token }; return { ok: true, detail: "API ok" }; };
+    const verify = async (name: string, inst: any, _opts: any) => { verified = { name, token: inst.token }; return { ok: true, detail: "API ok" }; };
     const r = await runEdit(["", "9|rotatedsecret99", "", "", "", ""], verify);
     expect(r.code).toBe(0);
     expect(verified.token).toBe("9|rotatedsecret99");   // verified the NEW value

@@ -1,5 +1,5 @@
 // src/core/ssh/resolver.test.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { ServerResolver } from "./resolver.js";
 import type { CoolifyApiClient } from "../api/client.js";
 
@@ -367,9 +367,9 @@ describe("ServerResolver", () => {
       ]);
 
       const api = {
-        ...makeApi({ serversGet: serverGetFn }),
+        ...(makeApi({ serversGet: serverGetFn }) as unknown as Record<string, unknown>),
         servers: {
-          ...makeApi({}).servers,
+          ...(makeApi({}).servers as unknown as Record<string, unknown>),
           get: serverGetFn,
           list: serverListFn,
         },
@@ -391,16 +391,16 @@ describe("ServerResolver", () => {
       ]);
 
       const api = {
-        ...makeApi({ serversGet: serverGetFn }),
+        ...(makeApi({ serversGet: serverGetFn }) as unknown as Record<string, unknown>),
         servers: {
-          ...makeApi({}).servers,
+          ...(makeApi({}).servers as unknown as Record<string, unknown>),
           get: serverGetFn,
           list: serverListFn,
         },
       } as unknown as CoolifyApiClient;
 
       const resolver = new ServerResolver(api);
-      await expect(resolver.resolveByServer("nonexistent-server")).rejects.toThrow();
+      await expect(resolver.resolveByServer("nonexistent-server")).rejects.toThrow("No server found with UUID or name");
     });
 
     it("no hint: isCoolifyHost=false for all servers", async () => {

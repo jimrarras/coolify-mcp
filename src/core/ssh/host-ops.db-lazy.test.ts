@@ -1,5 +1,5 @@
 // src/core/ssh/host-ops.db-lazy.test.ts
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { HostOps } from "./host-ops.js";
 describe("query_coolify_db lazy DB-role requirement", () => {
   it("errors when no read-only user is configured", async () => {

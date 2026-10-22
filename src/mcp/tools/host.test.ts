@@ -1,5 +1,5 @@
 // src/mcp/tools/host.test.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { TOOLS } from "./host.js";
 import type { ToolContext } from "./types.js";
 import type { HostOps } from "../../core/ssh/host-ops.js";

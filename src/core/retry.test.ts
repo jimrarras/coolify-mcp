@@ -180,7 +180,7 @@ describe("withRetry", () => {
         isRetryable: isTransientCoolifyError,
         sleep,
       })
-    ).rejects.toThrow();
+    ).rejects.toThrow("fail");
     expect(fn).toHaveBeenCalledTimes(4);
   });
 });

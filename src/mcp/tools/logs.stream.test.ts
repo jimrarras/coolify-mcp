@@ -1,5 +1,5 @@
 // src/mcp/tools/logs.stream.test.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { TOOLS } from "./logs.js";
 import type { ToolContext } from "./types.js";
 import type { HostOps } from "../../core/ssh/host-ops.js";
@@ -223,7 +223,6 @@ describe("stream_logs", () => {
   });
 
   it("returns partial with abort reason when AbortSignal fires before stream ends", async () => {
-    let capturedSignal: AbortSignal | null = null;
     const fakeHostOps = makeHostOps({
       dockerStream: vi.fn<(...args: any[]) => any>(async (
         _target: unknown,
@@ -231,7 +230,6 @@ describe("stream_logs", () => {
         onLine: (l: string) => void,
         signal: AbortSignal,
       ) => {
-        capturedSignal = signal;
         onLine("line 0");
         // Simulate abort during streaming: just exit if aborted
         if (signal.aborted) return { code: null };

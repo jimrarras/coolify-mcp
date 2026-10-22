@@ -22,7 +22,7 @@ describe("re-audit-4: SQL function blocklist defeats suffix / family bypasses (p
   ];
   for (const sql of rejected) {
     it(`rejects: ${sql.slice(0, 48)}`, () => {
-      expect(() => validateReadOnlySql(sql)).toThrow();
+      expect(() => validateReadOnlySql(sql)).toThrow("psqlReadOnly detected");
     });
   }
   it("still allows a plain SELECT", () => {

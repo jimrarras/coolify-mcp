@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { DeploymentsApi } from "./deployments.js";
 import { CoolifyApiClient } from "./client.js";
 import type { ApiConfig } from "../config.js";
@@ -64,7 +64,7 @@ describe("DeploymentsApi.trigger", () => {
       (calls++, new Response(JSON.stringify({ message: "bad gateway" }), { status: 502, headers: { "content-type": "application/json" } })),
     ) as typeof globalThis.fetch;
     const client = new CoolifyApiClient(CFG, { maxAttempts: 4, baseDelayMs: 0, sleep: async () => {} });
-    await expect(new DeploymentsApi(client).trigger({ uuid: "app1" })).rejects.toThrow();
+    await expect(new DeploymentsApi(client).trigger({ uuid: "app1" })).rejects.toThrow("HTTP 502");
     expect(calls).toBe(1);
   });
 });

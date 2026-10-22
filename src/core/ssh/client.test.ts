@@ -12,7 +12,7 @@ function makeKnownHostsLine(hostname: string, rawKeyBytes: Buffer, keyType = "ss
 }
 
 // ---- hoisted mock definitions so vi.mock factory can reference them ----
-const { mockSftpReadFile, mockSftpRealpath, mockSftpStat, mockSftpInstance, mockChannelSignal, mockStreamEnd, MockStream, MockClient } = vi.hoisted(() => {
+const { mockSftpReadFile, mockSftpRealpath, mockSftpStat, mockSftpInstance, mockChannelSignal, MockStream, MockClient } = vi.hoisted(() => {
   const mockSftpReadFile = vi.fn<(...args: any[]) => any>();
   const mockSftpRealpath = vi.fn<(...args: any[]) => any>();
   const mockSftpStat = vi.fn<(...args: any[]) => any>();
@@ -80,7 +80,7 @@ const { mockSftpReadFile, mockSftpRealpath, mockSftpStat, mockSftpInstance, mock
     end() {}
   }
 
-  return { mockSftpReadFile, mockSftpRealpath, mockSftpStat, mockSftpInstance, mockChannelSignal, mockStreamEnd, MockStream, MockClient };
+  return { mockSftpReadFile, mockSftpRealpath, mockSftpStat, mockSftpInstance, mockChannelSignal, MockStream, MockClient };
 });
 
 vi.mock("ssh2", () => ({
@@ -138,7 +138,7 @@ describe("SshClient", () => {
     // R9: SSH host-key verification hardening
     it("R9: passes readyTimeout: 10000 to ssh2.connect()", async () => {
       const client = new SshClient(baseCfg);
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       expect(cfg).not.toBeNull();
       expect(cfg!["readyTimeout"]).toBe(10_000);
@@ -146,14 +146,14 @@ describe("SshClient", () => {
 
     it("R9: passes passphrase to ssh2.connect() when set in SshConfig", async () => {
       const client = new SshClient({ ...baseCfg, passphrase: "hunter2" });
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       expect(cfg!["passphrase"]).toBe("hunter2");
     });
 
     it("R9: passes algorithm restrictions to ssh2.connect()", async () => {
       const client = new SshClient(baseCfg);
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const alg = cfg!["algorithms"] as Record<string, string[]>;
       expect(alg["kex"]).toContain("curve25519-sha256");
@@ -164,7 +164,7 @@ describe("SshClient", () => {
     // H2R5 fix 2: SSH host-key algorithm pinning
     it("H2R5: passes serverHostKey allowlist to ssh2.connect()", async () => {
       const client = new SshClient(baseCfg);
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const alg = cfg!["algorithms"] as Record<string, string[]>;
       expect(alg["serverHostKey"]).toBeDefined();
@@ -181,7 +181,7 @@ describe("SshClient", () => {
       // The vulnerability: without verification, any server key is accepted (MITM).
       // After the fix, hostVerifier must return true only for the correct key.
       const client = new SshClient(baseCfg);
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const hostVerifier = cfg!["hostVerifier"] as (key: Buffer) => boolean;
       expect(typeof hostVerifier).toBe("function");
@@ -195,7 +195,7 @@ describe("SshClient", () => {
       // Attack payload: an attacker presents a different key.
       // The verifier must return false, which aborts the handshake.
       const client = new SshClient(baseCfg);
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const hostVerifier = cfg!["hostVerifier"] as (key: Buffer) => boolean;
       const attackerKey = Buffer.from("evil-server-public-key-injected-by-mitm");
@@ -205,7 +205,7 @@ describe("SshClient", () => {
     it("R9: hostVerifier returns false when no fingerprint is configured (fail-closed)", () => {
       // Even if SshConfig.hostFingerprint is empty string, the verifier must refuse.
       const client = new SshClient({ ...baseCfg, hostFingerprint: "" });
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const hostVerifier = cfg!["hostVerifier"] as (key: Buffer) => boolean;
       expect(hostVerifier(MOCK_KEY_MATERIAL)).toBe(false);
@@ -215,7 +215,7 @@ describe("SshClient", () => {
       // Operators may provide the fingerprint in base64 (e.g. from ssh-keygen -l -E sha256)
       const b64Fingerprint = createHash("sha256").update(MOCK_KEY_MATERIAL).digest("base64");
       const client = new SshClient({ ...baseCfg, hostFingerprint: b64Fingerprint });
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const hostVerifier = cfg!["hostVerifier"] as (key: Buffer) => boolean;
       expect(hostVerifier(MOCK_KEY_MATERIAL)).toBe(true);
@@ -236,7 +236,7 @@ describe("SshClient", () => {
       });
 
       const client = new SshClient({ ...baseCfg, hostFingerprint: "", knownHostsPath: "/etc/known_hosts" });
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const hostVerifier = cfg!["hostVerifier"] as (key: Buffer) => boolean;
       expect(hostVerifier(serverKey)).toBe(true);
@@ -252,7 +252,7 @@ describe("SshClient", () => {
       });
 
       const client = new SshClient({ ...baseCfg, hostFingerprint: "", knownHostsPath: "/etc/known_hosts" });
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const hostVerifier = cfg!["hostVerifier"] as (key: Buffer) => boolean;
       expect(hostVerifier(attackerKey)).toBe(false);
@@ -268,7 +268,7 @@ describe("SshClient", () => {
       });
 
       const client = new SshClient({ ...baseCfg, hostFingerprint: "", knownHostsPath: "/etc/known_hosts" });
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const hostVerifier = cfg!["hostVerifier"] as (key: Buffer) => boolean;
       expect(hostVerifier(serverKey)).toBe(false);
@@ -285,7 +285,7 @@ describe("SshClient", () => {
       });
 
       const client = new SshClient(cfgWithPort);
-      client.connect();
+      void client.connect();
       const cfg = MockClient.getLastConnectConfig();
       const hostVerifier = cfg!["hostVerifier"] as (key: Buffer) => boolean;
       expect(hostVerifier(serverKey)).toBe(true);

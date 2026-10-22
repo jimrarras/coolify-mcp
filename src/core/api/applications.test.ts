@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { ApplicationsApi } from "./applications.js";
 import { CoolifyApiClient } from "./client.js";
 import type { ApiConfig } from "../config.js";
